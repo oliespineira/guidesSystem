@@ -1,0 +1,3 @@
+| Date/commit | Tool | Prompt | | Date/commit | Tool | Prompt | Disposition | What changed & why | In my own words, how this works |
+|---|---|---|---|---|---|
+| 2026-09-19 / <hash> | Claude | "Difference between Flask and FastAPI, and which fits my app" | Accepted | N/A. I first leaned toward Flask, but after the comparison and a chat with my teacher (who said neither is clearly better for this scope) I chose FastAPI. | I chose FastAPI because request bodies are validated from type hints (Pydantic models like `RondaCreate`), the database connection is opened and closed per request with `Depends(get_db)`, and `/docs` is generated automatically. Flask would have needed manual validation code. |

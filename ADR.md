@@ -1,0 +1,7 @@
+## 1. Backend language and framework: Python with FastAPI
+Date: 2026-09-19
+Status: Decided
+Context: The app has to run as one process with SQLite and two feature domains, and I have to be able to explain all of the code myself in a closed-book check. I first had to choose between Java, which I know best, and Python, and then between Flask, FastAPI and Django.
+Decision: I chose Python with FastAPI. Python has SQLite built into its standard library, needs no compile or build step, and is simple to connect to external tools and to the later Azure deployment. FastAPI gives me request validation from type hints, a database connection opened and closed per request with Depends(get_db), and automatic /docs, and it has plenty of documentation and examples to learn from.
+Alternatives considered: Java (for example Spring Boot) was the most familiar syntax for me, but it needs more setup and boilerplate for a small app and a heavier build and deployment step, which did not fit a simple single-process project. Flask was very similar and lighter, but I would have written the validation and connection handling by hand. Django I had used in class, but with a small schema I would have been paying for an ORM, admin and auth that this app does not need.
+Consequences: I write less boilerplate and get the API docs for free, and FastAPI leaves room to grow without switching frameworks. The cost is that I have to learn Pydantic models, dependency injection and running the app with uvicorn, and I have to explain Python as confidently as I could Java.
