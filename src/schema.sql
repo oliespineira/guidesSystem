@@ -1,5 +1,7 @@
 --  Kraal & Rama Management (feature 1)
 
+-- The if not exists are included to make the file safe to run on every startup, satisfying criterion 7 (no interactive setup)
+
 CREATE TABLE IF NOT EXISTS rondas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     year_label TEXT NOT NULL UNIQUE,
