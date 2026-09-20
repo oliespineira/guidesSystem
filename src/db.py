@@ -8,7 +8,7 @@ SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 
 def get_db_path() -> str:
-    data_dir = os.environ.get("DATA_DIR", "./data")
+    data_dir = os.environ.get("DATA_DIR", "./data") #configured in the environment and not hard coded.
     Path(data_dir).mkdir(parents=True, exist_ok=True)
     return str(Path(data_dir) / "app.db")
 
