@@ -47,5 +47,5 @@ def test_continuity_report_detects_join_leave_stay_and_move(conn):
 
     assert report.joined == ["Cayetana"]
     assert report.left == ["Alonso"]
-    assert report.stayed == ["Carla", "Arturo"]
+    assert report.stayed == ["Arturo", "Carla"]
     assert report.moved == {"Arturo": ("Guias", "Alitas")}
