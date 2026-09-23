@@ -2,6 +2,7 @@ import sqlite3
 
 from src.db import require_row
 from src.errors import ConflictError, InvalidInputError
+from dataclasses import dataclass
 
 
 class DuplicateRoleError(ConflictError):
@@ -120,3 +121,75 @@ def get_roster(conn: sqlite3.Connection, ronda_id: int) -> dict[str, list[str]]:
     for row in rows:
         roster.setdefault(row["rama_name"], []).append(row["volunteer_name"])
     return roster
+
+@dataclass
+class ContinuityReport:
+    joined: list[str]                    # in the new roster, not in the previous one
+    left: list[str]                      # in the previous roster, not in the new one
+    stayed: list[str]                    # in both
+    moved: dict[str, tuple[str, str]]    # name -> (previous rama, new rama)
+
+
+def continuity_report(conn: sqlite3.Connection, prev_ronda_id: int, new_ronda_id: int) -> ContinuityReport:
+    require_row(conn, "rondas", prev_ronda_id)
+    require_row(conn, "rondas", new_ronda_id)
+    prev = _volunteer_rama_map(conn, prev_ronda_id)
+    new = _volunteer_rama_map(conn, new_ronda_id)
+
+    prev_ids, new_ids = set(prev), set(new)
+    stayed_ids = prev_ids & new_ids
+    return ContinuityReport(
+        joined=sorted(new[i][0] for i in new_ids - prev_ids),
+        left=sorted(prev[i][0] for i in prev_ids - new_ids),
+        stayed=sorted(new[i][0] for i in stayed_ids),
+        moved={new[i][0]: (prev[i][1], new[i][1]) for i in stayed_ids if prev[i][1] != new[i][1]},
+    )
+
+
+def _volunteer_rama_map(conn: sqlite3.Connection, ronda_id: int) -> dict[int, tuple[str, str]]:
+    """volunteer_id -> (volunteer name, rama name). One rama per volunteer per ronda is
+    guaranteed by the schema, so there is no ambiguity."""
+    rows = conn.execute(
+        """SELECT v.id AS volunteer_id, v.name AS volunteer_name, r.name AS rama_name
+           FROM rama_assignments ra
+           JOIN ramas r ON r.id = ra.rama_id
+           JOIN volunteers v ON v.id = ra.volunteer_id
+           WHERE ra.ronda_id = ?""",
+        (ronda_id,),
+    ).fetchall()
+    return {row["volunteer_id"]: (row["volunteer_name"], row["rama_name"]) for row in rows}
+
+@dataclass
+class ContinuityReport:
+    joined: list[str]
+    left: list[str]
+    stayed: list[str]
+    moved: dict[str, tuple[str, str]]
+
+
+def continuity_report(conn: sqlite3.Connection, prev_ronda_id: int, new_ronda_id: int) -> ContinuityReport:
+    require_row(conn, "rondas", prev_ronda_id)
+    require_row(conn, "rondas", new_ronda_id)
+    prev = _volunteer_rama_map(conn, prev_ronda_id)
+    new = _volunteer_rama_map(conn, new_ronda_id)
+
+    prev_ids, new_ids = set(prev), set(new)
+    stayed_ids = prev_ids & new_ids
+    return ContinuityReport(
+        joined=sorted(new[i][0] for i in new_ids - prev_ids),
+        left=sorted(prev[i][0] for i in prev_ids - new_ids),
+        stayed=sorted(new[i][0] for i in stayed_ids),
+        moved={new[i][0]: (prev[i][1], new[i][1]) for i in stayed_ids if prev[i][1] != new[i][1]},
+    )
+
+
+def _volunteer_rama_map(conn: sqlite3.Connection, ronda_id: int) -> dict[int, tuple[str, str]]:
+    rows = conn.execute(
+        """SELECT v.id AS volunteer_id, v.name AS volunteer_name, r.name AS rama_name
+           FROM rama_assignments ra
+           JOIN ramas r ON r.id = ra.rama_id
+           JOIN volunteers v ON v.id = ra.volunteer_id
+           WHERE ra.ronda_id = ?""",
+        (ronda_id,),
+    ).fetchall()
+    return {row["volunteer_id"]: (row["volunteer_name"], row["rama_name"]) for row in rows}
