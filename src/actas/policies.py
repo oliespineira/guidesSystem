@@ -33,7 +33,7 @@ class AutoApproveUnder(ApprovalPolicy):
 
 class AlwaysToMeeting(ApprovalPolicy):
     def evaluate(self, amount_cents, remaining_cents):
-        return Verdict("pending", "To be decided at the next meeting")
+        return Verdict("pending", "To be decided at the next meeting") #norechaza lo que se pasa de presupuesto, que se decida en la reu
 
 
 
