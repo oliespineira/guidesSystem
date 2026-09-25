@@ -103,7 +103,7 @@ def submit_request(conn, budget_id: int, rama: str, item: str, amount_cents: int
 
 #Here we define the changes of state of the requests. every change od state is an object that records itself.
 
-ALLOWED= {"Pending": {"approved","rejected"}, "approved":{"paid"}} #order
+ALLOWED = {"pending": {"approved", "rejected"}, "approved": {"paid"}} #order
 
 class RequestCommand:
     """Base class. Use a subclass: each one sets target_status."""
