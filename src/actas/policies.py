@@ -17,7 +17,7 @@ class RejectOverBudget(ApprovalPolicy):
     def evaluate(self, amount_cents, remaining_cents):
         if amount_cents>remaining_cents:
             return Verdict("rejected", f"Exceeds remaining budget ({remaining_cents / 100:.2f} EUR)")
-        return Verdict("pendind", "Within budget; waiting for the treasurer")
+        return Verdict("pending", "Within budget; waiting for the treasurer")
 
 class AutoApproveUnder(ApprovalPolicy):
     def __init__(self, limit_cents: int):
