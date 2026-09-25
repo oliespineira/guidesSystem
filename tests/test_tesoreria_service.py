@@ -81,3 +81,57 @@ def test_list_budgets_shows_remaining_per_category(conn, ronda, budget):
     tesoreria.submit_request(conn, budget, "Guias", "Pilas", 1000, policies.AutoApproveUnder(5000))
     rows = {b["category"]: b["remaining_cents"] for b in tesoreria.list_budgets(conn, ronda)}
     assert rows == {"Albergues": 50000, "Material": 9000}
+
+def test_approving_consumes_budget(conn, budget):
+    r = tesoreria.submit_request(conn, budget, "Guias", "Tiendas", 6000, policies.RejectOverBudget())
+    tesoreria.Approve(r.request_id, actor="Tesorera").execute(conn)
+    assert tesoreria.remaining_cents(conn, budget) == 4000
+
+
+def test_cannot_pay_before_approval(conn, budget):
+    r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
+    with pytest.raises(ConflictError):
+        tesoreria.MarkPaid(r.request_id, payment_ref="TRF-1").execute(conn)
+
+
+def test_cannot_approve_twice(conn, budget):
+    r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
+    tesoreria.Approve(r.request_id).execute(conn)
+    with pytest.raises(ConflictError):
+        tesoreria.Approve(r.request_id).execute(conn)
+
+
+def test_rejected_request_cannot_be_approved_later(conn, budget):
+    r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
+    tesoreria.Reject(r.request_id, note="Not this year").execute(conn)
+    with pytest.raises(ConflictError):
+        tesoreria.Approve(r.request_id).execute(conn)
+
+
+def test_approve_fails_if_money_was_spent_in_the_meantime(conn, budget):
+    first = tesoreria.submit_request(conn, budget, "Guias", "Tiendas", 6000, policies.RejectOverBudget())
+    second = tesoreria.submit_request(conn, budget, "Alitas", "Albergue", 6000, policies.RejectOverBudget())
+    tesoreria.Approve(first.request_id).execute(conn)
+    with pytest.raises(ConflictError):
+        tesoreria.Approve(second.request_id).execute(conn)
+
+
+def test_payment_needs_a_reference(conn, budget):
+    r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
+    tesoreria.Approve(r.request_id).execute(conn)
+    with pytest.raises(InvalidInputError):
+        tesoreria.MarkPaid(r.request_id, payment_ref="  ")
+
+
+def test_unknown_request_is_not_found(conn):
+    with pytest.raises(NotFoundError):
+        tesoreria.Approve(999).execute(conn)
+
+
+def test_history_is_the_payment_record(conn, budget):
+    r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
+    tesoreria.Approve(r.request_id, actor="Tesorera").execute(conn)
+    tesoreria.MarkPaid(r.request_id, payment_ref="TRF-42", actor="Tesorera").execute(conn)
+    history = tesoreria.request_history(conn, r.request_id)
+    assert [h["action"] for h in history] == ["submitted", "approved", "paid"]
+    assert history[-1]["payment_ref"] == "TRF-42"

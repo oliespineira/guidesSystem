@@ -99,3 +99,68 @@ def submit_request(conn, budget_id: int, rama: str, item: str, amount_cents: int
         _log_event(conn, cur.lastrowid, verdict.status, actor="policy", note=verdict.reason)
     conn.commit()
     return SubmitResult(cur.lastrowid, verdict, similar)
+
+
+#Here we define the changes of state of the requests. every change od state is an object that records itself.
+
+ALLOWED= {"Pending": {"approved","rejected"}, "approved":{"paid"}} #order
+
+class RequestCommand:
+    """Base class. Use a subclass: each one sets target_status."""
+    target_status: str
+
+
+    def __init__(self, request_id: int, actor: str | None = None, note: str | None = None):
+        self.request_id = request_id
+        self.actor = actor
+        self.note = note
+
+    def execute(self, conn: sqlite3.Connection) -> None:
+        req = require_row(conn, "budget_requests", self.request_id)
+        if self.target_status not in ALLOWED.get(req["status"], set()):
+            raise ConflictError(f"Cannot move a {req['status']} request to {self.target_status}")
+        self._check(conn, req)
+        conn.execute("UPDATE budget_requests SET status = ? WHERE id = ?",
+                     (self.target_status, self.request_id))
+        _log_event(conn, self.request_id, self.target_status, self.actor, self.note, self._payment_ref())
+        conn.commit()
+
+    def _check(self, conn, req) -> None:
+        """Extra rule for one specific command. Default: none."""
+
+    def _payment_ref(self) -> str | None:
+        return None
+
+
+class Approve(RequestCommand):
+    target_status = "approved"
+
+    def _check(self, conn, req):
+        if req["amount_cents"] > remaining_cents(conn, req["budget_id"]):
+            raise ConflictError("Not enough budget left to approve this request")
+
+
+class Reject(RequestCommand):
+    target_status = "rejected"
+
+
+class MarkPaid(RequestCommand):
+    target_status = "paid"
+
+    def __init__(self, request_id: int, payment_ref: str, actor: str | None = None, note: str | None = None):
+        super().__init__(request_id, actor, note)
+        self.payment_ref = require_text(payment_ref, "Payment reference")
+
+    def _payment_ref(self):
+        return self.payment_ref
+
+
+def request_history(conn, request_id: int) -> list[dict]:
+    require_row(conn, "budget_requests", request_id)
+    rows = conn.execute(
+        """SELECT action, actor, note, payment_ref, created_at
+           FROM request_events WHERE request_id = ? ORDER BY id""",
+        (request_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+        
