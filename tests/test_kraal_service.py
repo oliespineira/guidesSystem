@@ -49,3 +49,46 @@ def test_continuity_report_detects_join_leave_stay_and_move(conn):
     assert report.left == ["Alonso"]
     assert report.stayed == ["Arturo", "Carla"]
     assert report.moved == {"Arturo": ("Guias", "Alitas")}
+
+# in test_kraal_service.py
+def test_get_roster_groups_by_rama(conn):
+    ronda = service.create_ronda(conn, "2026", "2026-09-01")
+    rama = service.create_rama(conn, ronda, "Guias")
+    v = service.add_volunteer(conn, "Ana")
+    service.assign_to_rama(conn, rama, v)
+    roster = service.get_roster(conn, ronda)
+    assert roster == {"Guias": ["Ana"]}
+
+
+def test_list_rondas_returns_all(conn):
+    service.create_ronda(conn, "2025", "2025-09-01")
+    service.create_ronda(conn, "2026", "2026-09-01")
+    assert len(service.list_rondas(conn)) == 2
+
+
+def test_create_rama_rejects_blank_name(conn):
+    ronda = service.create_ronda(conn, "2026", "2026-09-01")
+    with pytest.raises(InvalidInputError):
+        service.create_rama(conn, ronda, "   ")
+
+
+def test_assign_to_rama_rejects_invalid_availability(conn):
+    ronda = service.create_ronda(conn, "2026", "2026-09-01")
+    rama = service.create_rama(conn, ronda, "Guias")
+    v = service.add_volunteer(conn, "Ana")
+    with pytest.raises(service.InvalidAvailabilityError):
+        service.assign_to_rama(conn, rama, v, availability_pct=150)
+
+
+def test_assign_to_rama_rejects_second_rama_same_ronda(conn):
+    ronda = service.create_ronda(conn, "2026", "2026-09-01")
+    guias = service.create_rama(conn, ronda, "Guias")
+    alitas = service.create_rama(conn, ronda, "Alitas")
+    v = service.add_volunteer(conn, "Ana")
+    service.assign_to_rama(conn, guias, v)
+    with pytest.raises(ConflictError):
+        service.assign_to_rama(conn, alitas, v)
+def test_continuity_report_unknown_ronda_is_not_found(conn):
+    ronda = service.create_ronda(conn, "2026", "2026-09-01")
+    with pytest.raises(NotFoundError):
+        service.continuity_report(conn, ronda, 999)
