@@ -83,3 +83,37 @@ CREATE INDEX IF NOT EXISTS idx_meetings_ronda ON meetings(ronda_id);
 CREATE INDEX IF NOT EXISTS idx_agenda_meeting ON agenda_items(meeting_id);
 CREATE INDEX IF NOT EXISTS idx_decisions_agenda ON decisions(agenda_item_id);
 CREATE INDEX IF NOT EXISTS idx_events_ronda ON calendar_events(ronda_id);
+
+-- SubDomain 2(Tesorería): budgets, requests and their audit trial
+
+CREATE TABLE IF NOT EXISTS budgets(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ronda_id INTEGER NOT NULL REFERENCES rondas(id), --esto es el seam
+    category TEXT NOT NULL,
+    allocated_cents INTEGER NOT NULL CHECK (allocated_cents>=0),
+    UNIQUE (ronda_id, category)
+);
+
+-- rama is free text on purpose, like assigned_volunteers: no link to domain 1.
+CREATE TABLE IF NOT EXISTS budget_requests(
+    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+    budget_id INTEGER NNOT NULL REFERENCES budgets(id),
+    rama TEXT NOT NULL,
+    item TEXT NOT NULL,
+    item_key TEXT NOT NULL,        -- normalised item, for duplicate detection
+    amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected', 'paid'))
+        
+);CREATE TABLE IF NOT EXISTS request_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id INTEGER NOT NULL REFERENCES budget_requests(id),
+    action TEXT NOT NULL,
+    actor TEXT,
+    note TEXT,
+    payment_ref TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_requests_budget ON budget_requests(budget_id);
+CREATE INDEX IF NOT EXISTS idx_request_events_request ON request_events(request_id);
