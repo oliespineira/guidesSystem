@@ -3,6 +3,7 @@ import sqlite3
 from src.db import require_row
 from src.errors import ConflictError, InvalidInputError
 from dataclasses import dataclass
+from src.validation import require_text
 
 
 class DuplicateRoleError(ConflictError):
@@ -14,12 +15,11 @@ class InvalidAvailabilityError(InvalidInputError):
 
 
 def create_ronda(conn: sqlite3.Connection, year_label: str, start_date: str) -> int:
-    if not year_label or not year_label.strip():
-        raise InvalidInputError("Ronda label cannot be empty")
+    year_label = require_text(year_label, "Ronda Label" )
     try:
         cur = conn.execute(
             "INSERT INTO rondas (year_label, start_date) VALUES (?, ?)",
-            (year_label.strip(), start_date),
+            (year_label, start_date),
         )
     except sqlite3.IntegrityError:
         raise ConflictError(f"Ronda '{year_label}' already exists") from None
@@ -33,11 +33,10 @@ def list_rondas(conn: sqlite3.Connection) -> list[dict]:
 
 
 def add_volunteer(conn: sqlite3.Connection, name: str, joined_date: str | None = None) -> int:
-    if not name or not name.strip():
-        raise InvalidInputError("Volunteer name cannot be empty")
+    name= require_text(name, "Volunteer name")
     cur = conn.execute(
         "INSERT INTO volunteers (name, joined_date) VALUES (?, ?)",
-        (name.strip(), joined_date),
+        (name, joined_date),
     )
     conn.commit()
     return cur.lastrowid
@@ -46,28 +45,26 @@ def add_volunteer(conn: sqlite3.Connection, name: str, joined_date: str | None =
 def assign_role(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int, role_name: str) -> int:
     require_row(conn, "rondas", ronda_id)
     require_row(conn, "volunteers", volunteer_id)
-    if not role_name or not role_name.strip():
-        raise InvalidInputError("Role name cannot be empty")
+    role_name= require_text(role_name, "Role Name")
     existing = conn.execute(
         "SELECT id FROM roles WHERE ronda_id = ? AND role_name = ?",
-        (ronda_id, role_name.strip()),
+        (ronda_id, role_name),
     ).fetchone()
     if existing is not None:
         raise DuplicateRoleError(f"Role '{role_name}' is already assigned for this ronda")
     cur = conn.execute(
         "INSERT INTO roles (ronda_id, volunteer_id, role_name) VALUES (?, ?, ?)",
-        (ronda_id, volunteer_id, role_name.strip()),
+        (ronda_id, volunteer_id, role_name),
     )
     conn.commit()
     return cur.lastrowid
 
 def create_rama(conn: sqlite3.Connection, ronda_id: int, name: str) -> int:
     require_row(conn, "rondas", ronda_id)
-    if not name or not name.strip():
-        raise InvalidInputError("Rama name cannot be empty")
+    name= require_text(name, "Rama_name")
     try:
         cur = conn.execute(
-            "INSERT INTO ramas (ronda_id, name) VALUES (?, ?)", (ronda_id, name.strip())
+            "INSERT INTO ramas (ronda_id, name) VALUES (?, ?)", (ronda_id, name)
         )
     except sqlite3.IntegrityError:
         raise ConflictError(f"Rama '{name}' already exists in this ronda") from None

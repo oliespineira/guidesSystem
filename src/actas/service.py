@@ -5,7 +5,7 @@ from datetime import date#used to check that date string is really a date and to
 
 from src.db import require_row #fetches a row by id or raises "not found"
 from src.errors import InvalidInputError #error typr for pad input (HTTP 400N)
-
+from src.validation import require_text
 
 class InvalidDateRangeError(InvalidInputError):
     """A calendar event ends before it starts."""
@@ -26,11 +26,10 @@ def _parse_date(value: str, field: str) -> str:
 
 def create_meeting(conn, ronda_id: int, meeting_date: str, title: str) -> int:
     _require_ronda(conn, ronda_id)
-    if not title or not title.strip():
-        raise InvalidInputError("Meeting title cannot be empty")
+    title= require_text(title, "Meeting Title")
     cur = conn.execute(
         "INSERT INTO meetings (ronda_id, date, title) VALUES (?, ?, ?)",
-        (ronda_id, _parse_date(meeting_date, "date"), title.strip()),
+        (ronda_id, _parse_date(meeting_date, "date"), title),
     )
     conn.commit()
     return cur.lastrowid
@@ -48,8 +47,7 @@ def list_meetings(conn, ronda_id: int) -> list[dict]:
 def add_agenda_item(conn, meeting_id: int, section_title: str,
                     content: str | None = None, position: int | None = None) -> int:
     require_row(conn, "meetings", meeting_id)
-    if not section_title or not section_title.strip():
-        raise InvalidInputError("Section title cannot be empty")
+    section_title = require_text(section_title, "Section title" )
     if position is None:
         position = conn.execute(
             "SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM agenda_items WHERE meeting_id = ?",
@@ -57,7 +55,7 @@ def add_agenda_item(conn, meeting_id: int, section_title: str,
         ).fetchone()["next_pos"]
     cur = conn.execute(
         "INSERT INTO agenda_items (meeting_id, section_title, content, position) VALUES (?, ?, ?, ?)",
-        (meeting_id, section_title.strip(), content, position),
+        (meeting_id, section_title, content, position),
     )
     conn.commit()
     return cur.lastrowid
@@ -65,11 +63,10 @@ def add_agenda_item(conn, meeting_id: int, section_title: str,
 
 def record_decision(conn, agenda_item_id: int, description: str, vote_result: str | None = None) -> int:
     require_row(conn, "agenda_items", agenda_item_id)
-    if not description or not description.strip():
-        raise InvalidInputError("Decision description cannot be empty")
+    description = require_text(description, "Decision description")
     cur = conn.execute(
         "INSERT INTO decisions (agenda_item_id, description, vote_result) VALUES (?, ?, ?)",
-        (agenda_item_id, description.strip(), vote_result),
+        (agenda_item_id, description, vote_result),
     )
     conn.commit()
     return cur.lastrowid
@@ -78,8 +75,7 @@ def record_decision(conn, agenda_item_id: int, description: str, vote_result: st
 def add_calendar_event(conn, ronda_id: int, start_date: str, activity_type: str,
                        end_date: str | None = None, assigned_volunteers: str | None = None) -> int:
     _require_ronda(conn, ronda_id)
-    if not activity_type or not activity_type.strip():
-        raise InvalidInputError("Activity type cannot be empty")
+    activity_type = require_text(activity_type, "Activity type")
     start = _parse_date(start_date, "start_date")
     end = _parse_date(end_date, "end_date") if end_date else None
     if end is not None and end < start:
@@ -87,7 +83,7 @@ def add_calendar_event(conn, ronda_id: int, start_date: str, activity_type: str,
     cur = conn.execute(
         """INSERT INTO calendar_events (ronda_id, start_date, end_date, activity_type, assigned_volunteers)
            VALUES (?, ?, ?, ?, ?)""",
-        (ronda_id, start, end, activity_type.strip(), assigned_volunteers),
+        (ronda_id, start, end, activity_type, assigned_volunteers),
     )
     conn.commit()
     return cur.lastrowid
