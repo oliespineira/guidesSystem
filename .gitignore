@@ -5,3 +5,4 @@ data/
 .coverage
 .pytest_cache/
 .env
+coverage.txt
