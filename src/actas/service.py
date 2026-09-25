@@ -7,14 +7,11 @@ from src.db import require_row #fetches a row by id or raises "not found"
 from src.errors import InvalidInputError #error typr for pad input (HTTP 400N)
 from src.validation import require_text
 
+from src.actas.seam import require_ronda
+
 class InvalidDateRangeError(InvalidInputError):
     """A calendar event ends before it starts."""
 
-
-def _require_ronda(conn: sqlite3.Connection, ronda_id: int) -> None:
-    # THE SEAM. This is the only place Domain 2 asks about Domain 1's data.
-    # If the domains were split into services, this one function becomes an HTTP call.
-    require_row(conn, "rondas", ronda_id)
 
 
 def _parse_date(value: str, field: str) -> str:
@@ -25,7 +22,7 @@ def _parse_date(value: str, field: str) -> str:
 
 
 def create_meeting(conn, ronda_id: int, meeting_date: str, title: str) -> int:
-    _require_ronda(conn, ronda_id)
+    require_ronda(conn, ronda_id)
     title= require_text(title, "Meeting Title")
     cur = conn.execute(
         "INSERT INTO meetings (ronda_id, date, title) VALUES (?, ?, ?)",
@@ -36,7 +33,7 @@ def create_meeting(conn, ronda_id: int, meeting_date: str, title: str) -> int:
 
 
 def list_meetings(conn, ronda_id: int) -> list[dict]:
-    _require_ronda(conn, ronda_id)
+    require_ronda(conn, ronda_id)
     rows = conn.execute(
         "SELECT id, date, title FROM meetings WHERE ronda_id = ? ORDER BY date DESC, id DESC",
         (ronda_id,),
@@ -74,7 +71,7 @@ def record_decision(conn, agenda_item_id: int, description: str, vote_result: st
 
 def add_calendar_event(conn, ronda_id: int, start_date: str, activity_type: str,
                        end_date: str | None = None, assigned_volunteers: str | None = None) -> int:
-    _require_ronda(conn, ronda_id)
+    require_ronda(conn, ronda_id)
     activity_type = require_text(activity_type, "Activity type")
     start = _parse_date(start_date, "start_date")
     end = _parse_date(end_date, "end_date") if end_date else None
@@ -90,7 +87,7 @@ def add_calendar_event(conn, ronda_id: int, start_date: str, activity_type: str,
 
 
 def list_calendar(conn, ronda_id: int) -> list[dict]:
-    _require_ronda(conn, ronda_id)
+    require_ronda(conn, ronda_id)
     rows = conn.execute(
         "SELECT * FROM calendar_events WHERE ronda_id = ? ORDER BY start_date", (ronda_id,)
     ).fetchall()
