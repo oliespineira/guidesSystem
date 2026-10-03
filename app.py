@@ -22,6 +22,9 @@ from src.messaging.broker import Broker
 from src.messaging.notifier import BrokerNotifier
 from src.messaging.routes import router as avisos_router
 
+
+from src.actas.votes_routes import router as votes_router
+
 WEB_DIR = Path(__file__).parent / "web"
 
 @asynccontextmanager
@@ -42,6 +45,7 @@ app.include_router(kraal_router) #including routes created
 app.include_router(actas_router)
 app.include_router(tesoreria_router)
 app.include_router(avisos_router)
+app.include_router(votes_router)
 
 #central error handler: runs whenever any route raises a domain error and doesn't catch it itself
 @app.exception_handler(DomainError)
