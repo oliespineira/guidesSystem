@@ -37,6 +37,55 @@
 </section>
 
 <section>
+  <h2>Gestión (add data)</h2>
+  <p>Ronda: <select id="ronda-admin"></select></p>
+
+  <h3>New ronda</h3>
+  <p><input id="new-ronda-label" placeholder="Label, e.g. 2026-27">
+     <input id="new-ronda-date" type="date">
+     <button id="btn-new-ronda">Create ronda</button></p>
+
+  <h3>New volunteer</h3>
+  <p><input id="new-vol-name" placeholder="Name">
+     <button id="btn-new-vol">Add volunteer</button></p>
+
+  <h3>New rama (in the selected ronda)</h3>
+  <p><input id="new-rama-name" placeholder="e.g. Guías">
+     <button id="btn-new-rama">Create rama</button></p>
+
+  <h3>Put a volunteer in a rama</h3>
+  <p><select id="vol-admin-rama"></select> &rarr; <select id="rama-admin"></select>
+     <button id="btn-assign-rama">Assign</button></p>
+
+  <h3>Give a volunteer a role</h3>
+  <p><select id="vol-admin-role"></select>
+     <input id="new-role-name" placeholder="e.g. Tesorera">
+     <button id="btn-assign-role">Assign role</button></p>
+
+  <h3>Budget (in the selected ronda)</h3>
+  <p><input id="budget-cat" placeholder="Category, e.g. Material">
+     <input id="budget-eur" type="number" min="0" step="0.01" placeholder="EUR">
+     <button id="btn-new-budget">Create budget</button></p>
+
+  <h3>Request money</h3>
+  <p><select id="budget-admin"></select>
+     <input id="req-rama" placeholder="Rama, e.g. Alitas">
+     <input id="req-item" placeholder="Item">
+     <input id="req-eur" type="number" min="0" step="0.01" placeholder="EUR">
+     <button id="btn-new-req">Submit request</button></p>
+
+  <h3>Treasurer: act on a request</h3>
+  <p><input id="act-req-id" type="number" placeholder="Request id">
+     <input id="act-ref" placeholder="Payment ref (for pay)">
+     <button id="btn-approve">Approve</button>
+     <button id="btn-reject">Reject</button>
+     <button id="btn-pay">Mark paid</button>
+     <button id="btn-history">History</button></p>
+
+  <pre id="out-admin"></pre>
+</section>
+
+<section>
   <h2>Avisos (live notices)</h2>
   <p>
     <select id="ronda-avisos"></select>
@@ -72,9 +121,11 @@ function fail(el, err) { el.textContent = "Error: " + err.message; }
 
 async function loadRondas() {
   const rondas = await api("/api/kraal/rondas");
-  for (const id of ["ronda-roster", "ronda-prev", "ronda-new", "ronda-meet", "ronda-avisos"]) {
+  for (const id of ["ronda-roster", "ronda-prev", "ronda-new", "ronda-meet", "ronda-avisos", "ronda-admin"]) {
     const sel = document.getElementById(id);
+    const keep = sel.value;                                  // remember the current choice
     sel.replaceChildren(...rondas.map(r => new Option(r.year_label, r.id)));
+    if (keep) sel.value = keep;
   }
 }
 
@@ -108,16 +159,18 @@ document.getElementById("btn-meet").onclick = async () => {
   } catch (e) { fail(out, e); }
 };
 
-loadRondas().catch(e => fail(document.getElementById("out-roster"), e));
-
-
 
 // ----- Avisos: live notices over Server-Sent Events -----
 let source = null;   // the open EventSource, if any
 
 async function loadVolunteers() {
   const vols = await api("/api/kraal/volunteers");
-  document.getElementById("vol-avisos").replaceChildren(...vols.map(v => new Option(v.name, v.id)));
+  for (const id of ["vol-avisos", "vol-admin-rama", "vol-admin-role"]) {
+    const sel = document.getElementById(id);
+    const keep = sel.value;
+    sel.replaceChildren(...vols.map(v => new Option(v.name, v.id)));
+    if (keep) sel.value = keep;
+  }
 }
 
 function addNotice(n) {
@@ -167,6 +220,58 @@ document.getElementById("btn-post").onclick = async () => {
 
 loadVolunteers().catch(e => fail(document.getElementById("avisos-status"), e));
 
+// ----- Gestión: forms that add data through the same API /docs uses -----
+const adminOut = document.getElementById("out-admin");
+const val = id => document.getElementById(id).value;
+const cents = id => Math.round(parseFloat(val(id)) * 100);
+const adminRonda = () => val("ronda-admin");
+
+async function send(path, payload) {
+  const res = await fetch(path, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
+  return body;
+}
+
+async function loadRamasAndBudgets() {
+  const ronda = adminRonda();
+  if (!ronda) return;
+  const ramas = await api(`/api/kraal/rondas/${ronda}/ramas`);
+  document.getElementById("rama-admin").replaceChildren(...ramas.map(r => new Option(r.name, r.id)));
+  const budgets = await api(`/api/actas/budgets?ronda_id=${ronda}`);
+  document.getElementById("budget-admin").replaceChildren(...budgets.map(b =>
+    new Option(`${b.category} (${(b.remaining_cents / 100).toFixed(2)} EUR left)`, b.id)));
+}
+
+// Run an action, show its result (or error), then refresh every dropdown.
+function action(buttonId, run) {
+  document.getElementById(buttonId).onclick = async () => {
+    try {
+      show(adminOut, await run());
+      await loadRondas(); await loadVolunteers(); await loadRamasAndBudgets();
+    } catch (e) { fail(adminOut, e); }
+  };
+}
+
+action("btn-new-ronda", () => send("/api/kraal/rondas", {year_label: val("new-ronda-label"), start_date: val("new-ronda-date")}));
+action("btn-new-vol", () => send("/api/kraal/volunteers", {name: val("new-vol-name")}));
+action("btn-new-rama", () => send(`/api/kraal/rondas/${adminRonda()}/ramas`, {name: val("new-rama-name")}));
+action("btn-assign-rama", () => send(`/api/kraal/ramas/${val("rama-admin")}/members`, {volunteer_id: Number(val("vol-admin-rama"))}));
+action("btn-assign-role", () => send(`/api/kraal/rondas/${adminRonda()}/roles`, {volunteer_id: Number(val("vol-admin-role")), role_name: val("new-role-name")}));
+action("btn-new-budget", () => send("/api/actas/budgets", {ronda_id: Number(adminRonda()), category: val("budget-cat"), allocated_cents: cents("budget-eur")}));
+action("btn-new-req", () => send(`/api/actas/budgets/${val("budget-admin")}/requests`, {rama: val("req-rama"), item: val("req-item"), amount_cents: cents("req-eur")}));
+action("btn-approve", () => send(`/api/actas/requests/${val("act-req-id")}/approve`, {}));
+action("btn-reject", () => send(`/api/actas/requests/${val("act-req-id")}/reject`, {}));
+action("btn-pay", () => send(`/api/actas/requests/${val("act-req-id")}/pay`, {payment_ref: val("act-ref")}));
+document.getElementById("btn-history").onclick = async () => {
+  try { show(adminOut, await api(`/api/actas/requests/${val("act-req-id")}/history`)); }
+  catch (e) { fail(adminOut, e); }
+};
+document.getElementById("ronda-admin").onchange = () => loadRamasAndBudgets().catch(e => fail(adminOut, e));
+
+loadRondas().then(loadRamasAndBudgets).catch(e => fail(adminOut, e));
 </script>
 </body>
 </html>
