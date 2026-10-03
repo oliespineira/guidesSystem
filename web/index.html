@@ -36,6 +36,30 @@
   <pre id="out-meet"></pre>
 </section>
 
+<section>
+  <h2>Avisos (live notices)</h2>
+  <p>
+    <select id="ronda-avisos"></select>
+    <select id="vol-avisos"></select>
+    <button id="btn-connect">Connect as this volunteer</button>
+  </p>
+  <p id="avisos-status">Not connected.</p>
+  <ul id="avisos-list"></ul>
+  <h3>Post a notice</h3>
+  <p>
+    <select id="aviso-audience">
+      <option value="all">Whole kraal</option>
+      <option value="rama">One rama</option>
+      <option value="role">One role</option>
+    </select>
+    <input id="aviso-target" placeholder="Rama or role name (e.g. Guías, Tesorera)">
+  </p>
+  <p><input id="aviso-title" placeholder="Title" size="40"></p>
+  <p><textarea id="aviso-body" placeholder="Details (optional)" rows="2" cols="40"></textarea></p>
+  <button id="btn-post">Send notice</button>
+  <pre id="out-aviso"></pre>
+</section>
+
 <script>
 async function api(path) {
   const res = await fetch(path);
@@ -48,7 +72,7 @@ function fail(el, err) { el.textContent = "Error: " + err.message; }
 
 async function loadRondas() {
   const rondas = await api("/api/kraal/rondas");
-  for (const id of ["ronda-roster", "ronda-prev", "ronda-new", "ronda-meet"]) {
+  for (const id of ["ronda-roster", "ronda-prev", "ronda-new", "ronda-meet", "ronda-avisos"]) {
     const sel = document.getElementById(id);
     sel.replaceChildren(...rondas.map(r => new Option(r.year_label, r.id)));
   }
@@ -85,6 +109,64 @@ document.getElementById("btn-meet").onclick = async () => {
 };
 
 loadRondas().catch(e => fail(document.getElementById("out-roster"), e));
+
+
+
+// ----- Avisos: live notices over Server-Sent Events -----
+let source = null;   // the open EventSource, if any
+
+async function loadVolunteers() {
+  const vols = await api("/api/kraal/volunteers");
+  document.getElementById("vol-avisos").replaceChildren(...vols.map(v => new Option(v.name, v.id)));
+}
+
+function addNotice(n) {
+  const li = document.createElement("li");
+  const strong = document.createElement("strong");
+  strong.textContent = n.title;
+  const meta = document.createElement("small");
+  meta.textContent = ` (${n.topic}, ${n.created_at})`;
+  li.append(strong, meta);
+  if (n.body) { const p = document.createElement("div"); p.textContent = n.body; li.append(p); }
+  document.getElementById("avisos-list").prepend(li);     // newest on top
+}
+
+document.getElementById("btn-connect").onclick = async () => {
+  const ronda = document.getElementById("ronda-avisos").value;
+  const vol = document.getElementById("vol-avisos");
+  const status = document.getElementById("avisos-status");
+  if (source) source.close();                                // switching person: close the old stream
+  document.getElementById("avisos-list").replaceChildren();
+  try {
+    const topics = await api(`/api/avisos/topics?ronda_id=${ronda}&volunteer_id=${vol.value}`);
+    status.textContent = `Connected as ${vol.selectedOptions[0].text}. Listening to: ${topics.join(", ")}`;
+  } catch (e) { fail(status, e); return; }
+  source = new EventSource(`/api/avisos/stream?ronda_id=${ronda}&volunteer_id=${vol.value}`);
+  source.addEventListener("notice", e => addNotice(JSON.parse(e.data)));
+  source.onerror = () => { status.textContent = "Connection lost, reconnecting..."; };
+};
+
+document.getElementById("btn-post").onclick = async () => {
+  const out = document.getElementById("out-aviso");
+  const payload = {
+    ronda_id: Number(document.getElementById("ronda-avisos").value),
+    audience: document.getElementById("aviso-audience").value,
+    target: document.getElementById("aviso-target").value || null,
+    title: document.getElementById("aviso-title").value,
+    body: document.getElementById("aviso-body").value || null,
+  };
+  try {
+    const res = await fetch("/api/avisos", {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
+    show(out, body);
+  } catch (e) { fail(out, e); }
+};
+
+loadVolunteers().catch(e => fail(document.getElementById("avisos-status"), e));
+
 </script>
 </body>
 </html>
