@@ -1,3 +1,6 @@
+from src.db import get_connection
+
+
 def _ronda(client, label="2026"):
     return client.post("/api/kraal/rondas", json={"year_label": label, "start_date": "2026-09-01"})
 
@@ -95,3 +98,29 @@ def test_booking_flow_over_http(client):
     assert client.post(f"/api/actas/calendar/{ev}/booking", json={}).status_code == 409
     assert client.post(f"/api/actas/calendar/{ev}/booking/done", json={"venue": "Cercedilla"}).status_code == 200
     assert client.get(f"/api/actas/bookings?ronda_id={rid}").json()[0]["status"] == "booked"
+
+
+def test_list_roles_and_requests_over_http(client):
+    rid = _ronda(client).json()["id"]
+    ana = client.post("/api/kraal/volunteers", json={"name": "Ana"}).json()["id"]
+    client.post(f"/api/kraal/rondas/{rid}/roles", json={"volunteer_id": ana, "role_name": "Tesorera"})
+    assert client.get(f"/api/kraal/rondas/{rid}/roles").json() == [
+        {"role_name": "Tesorera", "volunteer_id": ana, "volunteer_name": "Ana"}]
+    bid = _budget(client, rid)
+    client.post(f"/api/actas/budgets/{bid}/requests", json={"rama": "Guias", "item": "Tiendas", "amount_cents": 3000})
+    [req] = client.get(f"/api/actas/requests?ronda_id={rid}").json()
+    assert (req["category"], req["rama"], req["item"]) == ("Material", "Guias", "Tiendas")
+    assert client.get("/api/actas/requests?ronda_id=999").status_code == 404
+
+
+def test_request_routes_send_notices(client, monkeypatch):
+    monkeypatch.delenv("APPROVAL_POLICY", raising=False)
+    rid = _ronda(client).json()["id"]
+    bid = _budget(client, rid)
+    req = client.post(f"/api/actas/budgets/{bid}/requests",
+                      json={"rama": "Guias", "item": "Tiendas", "amount_cents": 3000}).json()["id"]
+    client.post(f"/api/actas/requests/{req}/approve", json={"actor": "Tesorera"})
+    conn = get_connection()
+    topics = [r["topic"] for r in conn.execute("SELECT topic FROM notices ORDER BY id")]
+    conn.close()
+    assert topics == [f"ronda.{rid}.role.tesorera", f"ronda.{rid}.rama.guias"]

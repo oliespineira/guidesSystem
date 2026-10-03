@@ -69,6 +69,17 @@ def list_budgets(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
     ).fetchall()
     return [dict(r) for r in rows]
 
+
+def list_requests(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
+    require_ronda(conn, ronda_id)
+    rows = conn.execute(
+        """SELECT br.id, br.budget_id, b.category, br.rama, br.item, br.amount_cents, br.status
+           FROM budget_requests br JOIN budgets b ON b.id = br.budget_id
+           WHERE b.ronda_id = ? ORDER BY br.id DESC""",
+        (ronda_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
 def similar_requests(conn, budget_id: int, item_key: str, rama: str) -> list[dict]:
     """Open requests for the same item from OTHER ramas in the same ronda."""
     rows = conn.execute(

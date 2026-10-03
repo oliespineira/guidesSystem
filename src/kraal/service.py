@@ -65,6 +65,17 @@ def assign_role(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int, role
     conn.commit()
     return cur.lastrowid
 
+
+def list_roles(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
+    require_row(conn, "rondas", ronda_id)
+    rows = conn.execute(
+        """SELECT r.role_name, v.id AS volunteer_id, v.name AS volunteer_name
+           FROM roles r JOIN volunteers v ON v.id = r.volunteer_id
+           WHERE r.ronda_id = ? ORDER BY r.role_name""",
+        (ronda_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
 def create_rama(conn: sqlite3.Connection, ronda_id: int, name: str) -> int:
     require_row(conn, "rondas", ronda_id)
     name= require_text(name, "Rama_name")

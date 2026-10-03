@@ -21,29 +21,26 @@ def list_budgets(ronda_id: int, conn: sqlite3.Connection = Depends(get_db)):
     return tesoreria.list_budgets(conn, ronda_id)
 
 
-@router.post("/budgets/{budget_id}/requests", status_code=201)
-def submit_request(budget_id: int, body: RequestCreate,
-                   conn: sqlite3.Connection = Depends(get_db),
-                   policy: ApprovalPolicy = Depends(get_policy)):
-    r = tesoreria.submit_request(conn, budget_id, body.rama, body.item, body.amount_cents, policy)
-    return {"id": r.request_id, "status": r.verdict.status, "reason": r.verdict.reason, "similar": r.similar}
+@router.get("/requests")
+def list_requests(ronda_id: int, conn: sqlite3.Connection = Depends(get_db)):
+    return tesoreria.list_requests(conn, ronda_id)
 
 
 @router.post("/requests/{request_id}/approve")
 def approve(request_id: int, body: RequestAction, conn: sqlite3.Connection = Depends(get_db), notifier: Notifier = Depends(get_notifier)):
-    tesoreria.Approve(request_id, body.actor, body.note).execute(conn)
+    tesoreria.Approve(request_id, body.actor, body.note).execute(conn, notifier)
     return {"id": request_id, "status": "approved"}
 
 
 @router.post("/requests/{request_id}/reject")
 def reject(request_id: int, body: RequestAction, conn: sqlite3.Connection = Depends(get_db), notifier: Notifier = Depends(get_notifier)):
-    tesoreria.Reject(request_id, body.actor, body.note).execute(conn)
+    tesoreria.Reject(request_id, body.actor, body.note).execute(conn, notifier)
     return {"id": request_id, "status": "rejected"}
 
 
 @router.post("/requests/{request_id}/pay")
 def pay(request_id: int, body: RequestPayment, conn: sqlite3.Connection = Depends(get_db), notifier: Notifier = Depends(get_notifier)):
-    tesoreria.MarkPaid(request_id, body.payment_ref, body.actor, body.note).execute(conn)
+    tesoreria.MarkPaid(request_id, body.payment_ref, body.actor, body.note).execute(conn, notifier)
     return {"id": request_id, "status": "paid"}
 
 
