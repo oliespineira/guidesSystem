@@ -117,6 +117,27 @@
 </section>
 
 <section>
+  <h2>Salidas y albergues</h2>
+  <p>Uses the ronda selected in Gestión.</p>
+  <h3>New outing</h3>
+  <p><input id="out-start" type="date"> to <input id="out-end" type="date">
+     <input id="out-type" placeholder="e.g. Spring camp">
+     <button id="btn-new-outing">Add outing</button></p>
+  <h3>It needs an albergue</h3>
+  <p><input id="book-event" type="number" placeholder="Outing id">
+     Book by <input id="book-by" type="date"> (empty = default lead time)
+     <button id="btn-plan-booking">Plan booking</button></p>
+  <h3>It's booked</h3>
+  <p><input id="done-event" type="number" placeholder="Outing id">
+     <input id="done-venue" placeholder="Albergue name">
+     <input id="done-request" type="number" placeholder="Payment request id (optional)">
+     <button id="btn-booked">Mark booked</button></p>
+  <p><button id="btn-list-bookings">Show bookings</button></p>
+  <ul id="bookings-list"></ul>
+  <pre id="out-albergues"></pre>
+</section>
+
+<section>
   <h2>Avisos (live notices)</h2>
   <p>
     <select id="ronda-avisos"></select>
@@ -327,6 +348,37 @@ voteAction("btn-vote-open", () => send(`/api/actas/decisions/${decisionId()}/vot
 voteAction("btn-vote-cast", () => send(`/api/actas/decisions/${decisionId()}/votes`, {volunteer_id: Number(val("vol-vote")), choice: val("vote-choice")}));
 voteAction("btn-vote-tally", async () => {});
 voteAction("btn-vote-close", () => send(`/api/actas/decisions/${decisionId()}/vote/close`, {}));
+
+
+
+
+// ----- Salidas y albergues -----
+const albOut = document.getElementById("out-albergues");
+
+async function showBookings() {
+  const rows = await api(`/api/actas/bookings?ronda_id=${adminRonda()}`);
+  document.getElementById("bookings-list").replaceChildren(...rows.map(b => {
+    const li = document.createElement("li");
+    const left = b.days_left >= 0 ? `${b.days_left} days left` : `${-b.days_left} days OVERDUE`;
+    li.textContent = b.status === "booked"
+      ? `Outing ${b.event_id}, ${b.activity_type} (${b.start_date}): booked at ${b.venue}`
+      : `Outing ${b.event_id}, ${b.activity_type} (${b.start_date}): book by ${b.book_by}, ${left}`;
+    if (b.urgent) li.style.fontWeight = "bold";
+    return li;
+  }));
+}
+function albAction(buttonId, run) {
+  document.getElementById(buttonId).onclick = async () => {
+    try { show(albOut, await run()); await showBookings(); } catch (e) { fail(albOut, e); }
+  };
+}
+albAction("btn-new-outing", () => send("/api/actas/calendar", {
+  ronda_id: Number(adminRonda()), start_date: val("out-start"), end_date: val("out-end") || null, activity_type: val("out-type")}));
+albAction("btn-plan-booking", () => send(`/api/actas/calendar/${val("book-event")}/booking`, {book_by: val("book-by") || null}));
+albAction("btn-booked", () => send(`/api/actas/calendar/${val("done-event")}/booking/done`, {
+  venue: val("done-venue"), request_id: val("done-request") ? Number(val("done-request")) : null}));
+albAction("btn-list-bookings", async () => "");
+
 
 loadRondas().then(loadRamasAndBudgets).catch(e => fail(adminOut, e));
 </script>

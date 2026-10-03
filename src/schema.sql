@@ -143,3 +143,13 @@ CREATE TABLE IF NOT EXISTS votes (
     cast_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (decision_id, volunteer_id)  -- one vote per person per decision
 );
+
+-- Domain 2 (Albergues): an outing that needs accommodation booked before a deadline
+CREATE TABLE IF NOT EXISTS bookings (
+    event_id INTEGER PRIMARY KEY REFERENCES calendar_events(id),   -- one booking per outing
+    book_by TEXT NOT NULL,                                          -- ISO date: deadline to reserve
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'booked')),
+    venue TEXT,
+    request_id INTEGER REFERENCES budget_requests(id),              -- the payment, via tesorería
+    last_reminded TEXT                                              -- ISO date, so we remind once a day at most
+);

@@ -86,3 +86,12 @@ def test_vote_flow_over_http(client):
     assert client.post(f"/api/actas/decisions/{dec}/votes", json={"volunteer_id": ana, "choice": "no"}).status_code == 409
     assert client.get(f"/api/actas/decisions/{dec}/votes").json()["yes"] == 1
     assert client.post(f"/api/actas/decisions/{dec}/vote/close").status_code == 409    # still open
+
+def test_booking_flow_over_http(client):
+    rid = _ronda(client).json()["id"]
+    ev = client.post("/api/actas/calendar", json={"ronda_id": rid, "start_date": "2099-03-20",
+                                                "activity_type": "Camp"}).json()["id"]
+    assert client.post(f"/api/actas/calendar/{ev}/booking", json={"book_by": "2099-01-15"}).status_code == 201
+    assert client.post(f"/api/actas/calendar/{ev}/booking", json={}).status_code == 409
+    assert client.post(f"/api/actas/calendar/{ev}/booking/done", json={"venue": "Cercedilla"}).status_code == 200
+    assert client.get(f"/api/actas/bookings?ronda_id={rid}").json()[0]["status"] == "booked"
