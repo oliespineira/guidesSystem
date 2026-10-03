@@ -13,6 +13,9 @@ from src.kraal.routes import router as kraal_router
 from src.db import get_connection, init_db #get connection opens a SQLite connection and init_db runs schema.sql
 from src.errors import DomainError #all errors are inherited.
 
+from src.actas.policies import get_policy
+from src.actas.tesoreria_routes import router as tesoreria_router
+
 
 WEB_DIR = Path(__file__).parent / "web"
 
@@ -21,6 +24,7 @@ async def lifespan(app: FastAPI): #defines an asynchronous generator function th
     conn=get_connection()
     init_db(conn) #the schema is created on every start.no manual setup
     conn.close()
+    get_policy()
     yield #nothing behind so shutdown does nothing extra.
 
 
@@ -28,6 +32,7 @@ app = FastAPI(title="Guias Torrelodones", lifespan=lifespan)
 
 app.include_router(kraal_router) #including routes created
 app.include_router(actas_router)
+app.include_router(tesoreria_router)
 
 #central error handler: runs whenever any route raises a domain error and doesn't catch it itself
 @app.exception_handler(DomainError)

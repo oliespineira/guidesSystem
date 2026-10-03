@@ -21,5 +21,24 @@ class CalendarEventCreate(BaseModel):
     activity_type: str= Field(..., min_length=1)
     end_date: date| None=None
     assigned_volunteers: str| None=None
+class BudgetCreate(BaseModel):
+    ronda_id: int
+    category: str = Field(..., min_length=1)
+    allocated_cents: int                     # sign checked in the service
+
+
+class RequestCreate(BaseModel):
+    rama: str = Field(..., min_length=1)
+    item: str = Field(..., min_length=1)
+    amount_cents: int                        # > 0 checked in the service
+
+
+class RequestAction(BaseModel):
+    actor: str | None = None
+    note: str | None = None
+
+
+class RequestPayment(RequestAction):
+    payment_ref: str = Field(..., min_length=1)
 
 

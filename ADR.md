@@ -10,9 +10,9 @@ Consequences: I write less boilerplate and get the API docs for free, and FastAP
 Date: 19-09-2026
 Status: Decided
 Context: The assignment requires two feature domains that could later become separate services, so I had to decide where to draw the line inside one SQLite schema. The domains are Kraal & Rama Management (who is on the team each year) and the Meeting & Decision Log (what was discussed and decided).
-Decision: Domain 1 owns rondas, volunteers, roles, ramas and rama_assignments, and Domain 2 owns meetings, agenda_items, decisions and calendar_events. The only link between them is ronda_id on meetings and calendar_events, and the code checks it in a single function, _require_ronda.
+Decision: Domain 1 owns rondas, volunteers, roles, ramas and rama_assignments, and Domain 2 owns meetings, agenda_items, decisions and calendar_events. The only link between them is ronda_id on meetings and calendar_events, and the code checks it in a single function, require_ronda.
 Alternatives considered: I could have made volunteers and ramas two separate domains, but the roster and the continuity report always need both, so almost every use would cross the boundary. I could also have added an attendees table linking meetings to volunteers, which gives real attendance data, but it adds foreign keys from Domain 2 into Domain 1 and spreads the coupling, so assigned_volunteers stays free text.
-Consequences: ronda_id is still a real dependency (a foreign key today); in a split it would become a plain number and _require_ronda would ask Domain 1 over HTTP instead of querying the database. Free text means typos and no per-volunteer queries on events, but no coupling to the volunteers table.
+Consequences: ronda_id is still a real dependency (a foreign key today); in a split it would become a plain number and require_ronda would ask Domain 1 over HTTP instead of querying the database. Free text means typos and no per-volunteer queries on events, but no coupling to the volunteers table.
 
 ## 3. Data model: ronda_id as anchor, with a denormalized copy on rama_assignments
 Date: 2026-09-20
