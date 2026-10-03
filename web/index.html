@@ -1,386 +1,917 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guias Torrelodones</title>
+<title>Guías Torrelodones · Kraal</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; }
-  section { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; }
-  pre { background: #f5f5f5; padding: .75rem; overflow-x: auto; }
-  select, button { font-size: 1rem; margin-right: .5rem; }
+  /* Look: warm light "Auralis" style. Cream canvas, ink text, orange-to-rose accent, glass surfaces,
+     square corners, light display type. Fonts come from the computer only (no downloads, §7.6). */
+  :root {
+    --ink: #111827;
+    --ink-2: #4B5563;
+    --accent: #EA580C;
+    --rose: #E11D48;
+    --cream: #FFF7ED;
+    --night: #1C1C1E;
+    --glass: rgba(255, 255, 255, .58);
+    --glass-strong: rgba(255, 255, 255, .78);
+    --hair: rgba(17, 24, 39, .10);
+    --gradient: linear-gradient(90deg, #EA580C, #E11D48);
+    --shadow: 0 2px 3px -1px rgba(0,0,0,.1), 0 1px 0 0 rgba(25,28,33,.02), 0 0 0 1px rgba(25,28,33,.08);
+    --ok: #15803D;
+    --font: Geist, "Geist Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: var(--font); font-size: 16px; line-height: 1.6; color: var(--ink);
+    /* fallback when WebGL is unavailable */
+    background:
+      radial-gradient(60rem 40rem at 100% 100%, rgba(234,88,12,.35), transparent 60%),
+      radial-gradient(50rem 30rem at 85% 110%, rgba(225,29,72,.25), transparent 60%),
+      radial-gradient(40rem 30rem at 0% 0%, #FFFFFF, transparent 70%),
+      var(--cream);
+    background-attachment: fixed;
+  }
+  #bg { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -2; display: block; }
+  .slices {             /* faint vertical glass slices over the field */
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: repeating-linear-gradient(90deg, transparent 0 159px, rgba(255,255,255,.35) 159px 160px);
+  }
+  h1, h2, h3 { margin: 0; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15; }
+  h2 { font-size: 1.375rem; }
+  h3 { font-size: 1.0625rem; }
+  p { margin: 0; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  ::selection { background: rgba(234,88,12,.2); }
+
+  /* Shell */
+  .shell { display: grid; grid-template-columns: 15.5rem 1fr; min-height: 100vh; }
+  .side {
+    background: var(--glass); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border-right: .67px solid #fff; box-shadow: rgba(255,255,255,.9) -15px 0 30px -10px inset;
+    padding: 2rem 1rem; display: flex; flex-direction: column; gap: 2.5rem; position: sticky; top: 0; height: 100vh;
+  }
+  .brand { display: flex; gap: .75rem; align-items: center; padding: 0 .5rem; }
+  .brand svg { flex: none; }
+  .brand strong { font-size: 1.0625rem; font-weight: 600; display: block; line-height: 1.2; letter-spacing: -0.02em; }
+  .brand span { font-size: .8125rem; color: var(--ink-2); }
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  nav button {
+    all: unset; cursor: pointer; position: relative; padding: .625rem .875rem; font-size: .875rem;
+    display: flex; justify-content: space-between; align-items: center; color: var(--ink-2);
+    transition: color 150ms ease, background-color 150ms ease;
+  }
+  nav button:hover { color: var(--ink); background: rgba(255,255,255,.5); }
+  nav button[aria-current="page"] { color: var(--ink); background: var(--glass-strong); box-shadow: var(--shadow); }
+  nav button[aria-current="page"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--gradient); }
+  nav button:focus-visible { outline: 2px solid var(--accent); }
+  .count { background: var(--gradient); color: #fff; font-weight: 600; font-size: .75rem; padding: 0 .5rem; }
+
+  main { padding: 2rem 2.5rem 4rem; min-width: 0; }
+  .topbar {
+    display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: end; padding: 1rem 1.25rem; margin-bottom: 3rem;
+    background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: .67px solid #fff; box-shadow: var(--shadow);
+  }
+  .topbar label { display: grid; gap: .25rem; font-size: .8125rem; color: var(--ink-2); }
+  .topbar select { min-width: 11rem; }
+  .live { margin-left: auto; font-size: .875rem; color: var(--ink-2); display: flex; gap: .5rem; align-items: center; }
+  .dot { width: .5rem; height: .5rem; background: #9CA3AF; }
+  .dot.on { background: var(--gradient); box-shadow: 0 0 0 4px rgba(234,88,12,.15); }
+
+  .view { max-width: 68rem; display: grid; gap: 2.5rem; align-content: start; }
+  .stack { display: grid; gap: 1.25rem; align-content: start; }
+  /* The display headline: big, light, tight — the one loud typographic moment per screen */
+  .view > header h2 { font-size: clamp(2.5rem, 5.5vw, 4.5rem); font-weight: 300; letter-spacing: -0.05em; line-height: 1; }
+  .view > header { animation: rise 800ms var(--ease) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .intro { color: var(--ink-2); max-width: 40rem; margin-top: 1rem; font-size: 1.0625rem; line-height: 1.65; }
+  .cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(17rem, 2fr); gap: 2rem; align-items: start; }
+
+  /* Glass panels */
+  .panel {
+    background: var(--glass); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: .67px solid #fff; box-shadow: var(--shadow); padding: 1.5rem; display: grid; gap: 1rem;
+  }
+  form { display: grid; gap: .875rem; }
+  .field { display: grid; gap: .375rem; font-size: .8125rem; color: var(--ink-2); }
+  .row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
+  .row > .field { flex: 1 1 9rem; }
+  input, select, textarea {
+    width: 100%; padding: .625rem .75rem; border: 1px solid var(--hair); border-radius: 0;
+    background: rgba(255,255,255,.75); color: var(--ink); font-size: .9375rem;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  input:hover, select:hover, textarea:hover { border-color: rgba(17,24,39,.25); }
+  input:focus, select:focus, textarea:focus { background: #fff; border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(234,88,12,.15); }
+  textarea { resize: vertical; min-height: 4.5rem; }
+  .btn {
+    cursor: pointer; border: 0; background: var(--night); color: #fff; padding: .75rem 1.125rem; border-radius: 0;
+    font-size: .875rem; font-weight: 500; white-space: nowrap; transition: background 300ms var(--ease), color 150ms ease;
+  }
+  .btn:hover { background: var(--gradient); }
+  .btn.ghost { background: rgba(255,255,255,.6); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(17,24,39,.18); }
+  .btn.ghost:hover { color: var(--accent); background: #fff; }
+  .btn.small { padding: .375rem .75rem; font-size: .8125rem; }
+  .btn.danger { background: transparent; color: var(--rose); box-shadow: inset 0 0 0 1px rgba(225,29,72,.4); }
+  .btn.danger:hover { background: rgba(225,29,72,.08); }
+
+  .empty { color: var(--ink-2); padding: .5rem 0; }
+  .hint { font-size: .875rem; color: var(--ink-2); }
+  .warn { border-left: 2px solid var(--accent); background: rgba(255,237,213,.85); padding: .75rem 1rem; font-size: .9375rem; }
+
+  /* Notices: glass cards with a gradient hairline frame (the "shell") */
+  .board { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; }
+  .patch {
+    --c: var(--ink);
+    position: relative; padding: 1.25rem 1.25rem 1rem;
+    background: var(--glass-strong); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid transparent; border-image: linear-gradient(135deg, rgba(234,88,12,.55), rgba(255,255,255,.9) 40%, rgba(225,29,72,.45)) 1;
+    box-shadow: var(--shadow);
+  }
+  .patch .who { font-size: .75rem; color: var(--ink-2); display: flex; align-items: center; gap: .5rem; }
+  .patch .who::before { content: ""; width: .5rem; height: .5rem; background: var(--c); }
+  .patch h3 { margin: .625rem 0 .375rem; font-size: 1.125rem; }
+  .patch .body { white-space: pre-wrap; color: var(--ink-2); }
+  .patch time { display: block; margin-top: 1rem; font-size: .75rem; color: #6B7280; }
+  .patch.fresh { animation: rise 800ms var(--ease); }
+
+  /* Ramas */
+  .ramas { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 1rem; }
+  .rama { background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: .67px solid #fff; box-shadow: var(--shadow); padding: 1.125rem; }
+  .rama h3 { display: flex; align-items: center; gap: .5rem; }
+  .rama h3::before { content: ""; width: .5rem; height: .5rem; background: var(--c, var(--ink)); }
+  .people { display: flex; flex-wrap: wrap; gap: .375rem; margin-top: .75rem; }
+  .chip { background: rgba(255,255,255,.8); border: 1px solid var(--hair); padding: .125rem .625rem; font-size: .8125rem; }
+  .roles { display: flex; flex-wrap: wrap; gap: .5rem 1.75rem; margin-top: .625rem; }
+  .roles b { font-weight: 400; color: var(--ink-2); margin-right: .375rem; font-size: .875rem; }
+
+  /* Lists */
+  .list { list-style: none; padding: 0; margin: .875rem 0 0; border-top: 1px solid var(--hair); }
+  .list > li { padding: 1rem 0; border-bottom: 1px solid var(--hair); display: grid; gap: .625rem; }
+  .line { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; justify-content: space-between; }
+  .pill { font-size: .75rem; font-weight: 500; padding: .125rem .5rem; background: rgba(17,24,39,.06); color: var(--ink-2); }
+  .pill.pending { background: rgba(234,88,12,.12); color: #9A3412; }
+  .pill.approved { background: rgba(21,128,61,.12); color: var(--ok); }
+  .pill.paid { background: var(--night); color: #fff; }
+  .pill.rejected { background: rgba(225,29,72,.10); color: var(--rose); }
+  .actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: end; }
+  .actions form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: end; }
+  .actions input { padding: .375rem .625rem; font-size: .8125rem; }
+  details > summary { cursor: pointer; color: var(--ink); font-size: .875rem; font-weight: 500; transition: color 150ms ease; }
+  details > summary:hover { color: var(--accent); }
+  details[open] > summary { margin-bottom: .875rem; }
+
+  /* Budget bars */
+  .bar { height: 4px; background: rgba(17,24,39,.08); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--night); transition: width 800ms var(--ease); }
+  .bar.low span { background: var(--gradient); }
+  .bar.out span { background: var(--rose); }
+
+  /* Meetings */
+  .meetings { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 2rem; align-items: start; }
+  .mlist { display: grid; gap: 2px; }
+  .mlist button { all: unset; cursor: pointer; padding: .625rem .875rem; position: relative; transition: background-color 150ms ease; }
+  .mlist button:hover { background: rgba(255,255,255,.5); }
+  .mlist button[aria-current="true"] { background: var(--glass-strong); box-shadow: var(--shadow); }
+  .mlist button[aria-current="true"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--gradient); }
+  .mlist button:focus-visible { outline: 2px solid var(--accent); }
+  .mlist small { display: block; color: var(--ink-2); }
+  .item { border-left: 1px solid rgba(17,24,39,.15); padding-left: 1.25rem; display: grid; gap: .875rem; }
+  .decision { background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: .67px solid #fff; box-shadow: var(--shadow); padding: 1rem 1.125rem; display: grid; gap: .75rem; }
+  .tally { display: flex; height: 4px; overflow: hidden; background: rgba(17,24,39,.08); }
+  .tally .y { background: var(--night); } .tally .n { background: var(--rose); } .tally .a { background: #9CA3AF; }
+  .legend { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; font-size: .8125rem; color: var(--ink-2); }
+
+  /* Outings */
+  .outing { display: grid !important; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 1.25rem; }
+  .date { text-align: center; padding: .5rem .25rem; align-self: start; background: var(--glass-strong); border: .67px solid #fff; box-shadow: var(--shadow); }
+  .date b { display: block; font-size: 1.875rem; font-weight: 300; letter-spacing: -0.05em; line-height: 1; }
+  .date span { font-size: .75rem; color: var(--ink-2); }
+  .urgent { color: var(--accent); font-weight: 600; }
+
+  dialog { border: .67px solid #fff; padding: 1.75rem; width: min(26rem, 92vw); background: rgba(255,255,255,.9); backdrop-filter: blur(16px); box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(17,24,39,.25); backdrop-filter: blur(6px); }
+
+  .toasts { position: fixed; right: 1.25rem; bottom: 1.25rem; display: grid; gap: .5rem; z-index: 10; max-width: 22rem; }
+  .toast { background: var(--night); color: #fff; padding: .875rem 1rem; font-size: .875rem; border-left: 2px solid var(--accent); animation: rise 300ms var(--ease); }
+  .toast.error { border-left-color: var(--rose); }
+
+  @media (max-width: 52rem) {
+    .shell { grid-template-columns: 1fr; }
+    .side { position: static; height: auto; padding: 1rem; gap: 1rem; border-right: 0; border-bottom: .67px solid #fff; }
+    nav { flex-direction: row; overflow-x: auto; }
+    nav button { white-space: nowrap; }
+    main { padding: 1rem; }
+    .topbar { margin-bottom: 2rem; }
+    .cols, .meetings { grid-template-columns: 1fr; }
+    .live { margin-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
-<h1>Guias Torrelodones</h1>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="slices" aria-hidden="true"></div>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true">
+        <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EA580C"/><stop offset="1" stop-color="#E11D48"/></linearGradient></defs>
+        <g fill="url(#tg)"><circle cx="20" cy="12" r="7"/><circle cx="12" cy="22" r="7"/><circle cx="28" cy="22" r="7"/><rect x="18" y="22" width="4" height="14" rx="2"/></g>
+      </svg>
+      <div><strong>Guías Torrelodones</strong><span>Kraal</span></div>
+    </div>
+    <nav aria-label="Secciones">
+      <button data-view="avisos">Avisos <span class="count" id="unread" hidden></span></button>
+      <button data-view="kraal">Kraal y ramas</button>
+      <button data-view="reuniones">Reuniones y votos</button>
+      <button data-view="tesoreria">Tesorería</button>
+      <button data-view="salidas">Salidas y albergues</button>
+    </nav>
+  </aside>
 
-<section>
-  <h2>Roster</h2>
-  <select id="ronda-roster"></select>
-  <button id="btn-roster">Show roster</button>
-  <pre id="out-roster"></pre>
-</section>
+  <main>
+    <div class="topbar">
+      <label>Ronda
+        <select id="ronda-select"></select>
+      </label>
+      <button class="btn ghost small" id="new-ronda-btn" type="button">Nueva ronda</button>
+      <label>Estoy usando la app como
+        <select id="me-select"></select>
+      </label>
+      <p class="live"><span class="dot" id="live-dot"></span><span id="live-text">Elige quién eres para recibir avisos</span></p>
+    </div>
+    <div id="view" class="view"></div>
+  </main>
+</div>
 
-<section>
-  <h2>Year-over-year continuity</h2>
-  <select id="ronda-prev"></select> &rarr; <select id="ronda-new"></select>
-  <button id="btn-cont">Compare</button>
-  <pre id="out-cont"></pre>
-</section>
+<dialog id="ronda-dialog">
+  <form id="ronda-form">
+    <h2>Nueva ronda</h2>
+    <p class="hint">Una ronda es un año de guidismo. Los cargos y las ramas se organizan por ronda.</p>
+    <label class="field">Nombre<input name="year_label" required placeholder="2026-27"></label>
+    <label class="field">Empieza el<input name="start_date" type="date" required></label>
+    <label class="hint" style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" name="ramas" checked style="width:auto">
+      Crear también las ramas: Arcoíris, Alitas, Guías, Pioneras y Fuegos</label>
+    <div class="actions"><button class="btn" type="submit">Crear ronda</button>
+      <button class="btn ghost" type="button" id="ronda-cancel">Cancelar</button></div>
+  </form>
+</dialog>
 
-<section>
-  <h2>Meetings</h2>
-  <select id="ronda-meet"></select>
-  <button id="btn-meet">List meetings</button>
-  <ul id="meet-list"></ul>
-  <pre id="out-meet"></pre>
-</section>
-
-<section>
-  <h2>Gestión (add data)</h2>
-  <p>Ronda: <select id="ronda-admin"></select></p>
-
-  <h3>New ronda</h3>
-  <p><input id="new-ronda-label" placeholder="Label, e.g. 2026-27">
-     <input id="new-ronda-date" type="date">
-     <button id="btn-new-ronda">Create ronda</button></p>
-
-  <h3>New volunteer</h3>
-  <p><input id="new-vol-name" placeholder="Name">
-     <button id="btn-new-vol">Add volunteer</button></p>
-
-  <h3>New rama (in the selected ronda)</h3>
-  <p><input id="new-rama-name" placeholder="e.g. Guías">
-     <button id="btn-new-rama">Create rama</button></p>
-
-  <h3>Put a volunteer in a rama</h3>
-  <p><select id="vol-admin-rama"></select> &rarr; <select id="rama-admin"></select>
-     <button id="btn-assign-rama">Assign</button></p>
-
-  <h3>Give a volunteer a role</h3>
-  <p><select id="vol-admin-role"></select>
-     <input id="new-role-name" placeholder="e.g. Tesorera">
-     <button id="btn-assign-role">Assign role</button></p>
-
-  <h3>Budget (in the selected ronda)</h3>
-  <p><input id="budget-cat" placeholder="Category, e.g. Material">
-     <input id="budget-eur" type="number" min="0" step="0.01" placeholder="EUR">
-     <button id="btn-new-budget">Create budget</button></p>
-
-  <h3>Request money</h3>
-  <p><select id="budget-admin"></select>
-     <input id="req-rama" placeholder="Rama, e.g. Alitas">
-     <input id="req-item" placeholder="Item">
-     <input id="req-eur" type="number" min="0" step="0.01" placeholder="EUR">
-     <button id="btn-new-req">Submit request</button></p>
-
-  <h3>Meeting, agenda item and decision (in the selected ronda)</h3>
-  <p><input id="meet-date" type="date"> <input id="meet-title" placeholder="Meeting title">
-     <button id="btn-new-meeting">Create meeting</button></p>
-  <p><input id="agenda-meeting-id" type="number" placeholder="Meeting id">
-     <input id="agenda-title" placeholder="Agenda item, e.g. Material">
-     <button id="btn-new-agenda">Add agenda item</button></p>
-  <p><input id="decision-agenda-id" type="number" placeholder="Agenda item id">
-     <input id="decision-desc" placeholder="Decision, e.g. Buy 4 tents">
-     <button id="btn-new-decision">Record decision</button></p>
-
-  <h3>Treasurer: act on a request</h3>
-  <p><input id="act-req-id" type="number" placeholder="Request id">
-     <input id="act-ref" placeholder="Payment ref (for pay)">
-     <button id="btn-approve">Approve</button>
-     <button id="btn-reject">Reject</button>
-     <button id="btn-pay">Mark paid</button>
-     <button id="btn-history">History</button></p>
-
-  <pre id="out-admin"></pre>
-</section>
-
-<section>
-  <h2>Votaciones</h2>
-  <p>Decision id: <input id="vote-decision" type="number"></p>
-  <h3>Open a vote</h3>
-  <p>Closes at <input id="vote-closes" type="datetime-local">
-     <select id="vote-rule">
-       <option value="majority_of_cast">Majority of votes cast</option>
-       <option value="majority_of_kraal">Majority of the whole kraal</option>
-     </select>
-     <button id="btn-vote-open">Open vote</button></p>
-  <h3>Vote (also before the meeting, if you can't attend)</h3>
-  <p><select id="vol-vote"></select>
-     <select id="vote-choice">
-       <option value="yes">Yes</option><option value="no">No</option><option value="abstain">Abstain</option>
-     </select>
-     <button id="btn-vote-cast">Cast vote</button></p>
-  <p><button id="btn-vote-tally">Who has voted?</button>
-     <button id="btn-vote-close">Close and count</button></p>
-  <pre id="out-vote"></pre>
-</section>
-
-<section>
-  <h2>Salidas y albergues</h2>
-  <p>Uses the ronda selected in Gestión.</p>
-  <h3>New outing</h3>
-  <p><input id="out-start" type="date"> to <input id="out-end" type="date">
-     <input id="out-type" placeholder="e.g. Spring camp">
-     <button id="btn-new-outing">Add outing</button></p>
-  <h3>It needs an albergue</h3>
-  <p><input id="book-event" type="number" placeholder="Outing id">
-     Book by <input id="book-by" type="date"> (empty = default lead time)
-     <button id="btn-plan-booking">Plan booking</button></p>
-  <h3>It's booked</h3>
-  <p><input id="done-event" type="number" placeholder="Outing id">
-     <input id="done-venue" placeholder="Albergue name">
-     <input id="done-request" type="number" placeholder="Payment request id (optional)">
-     <button id="btn-booked">Mark booked</button></p>
-  <p><button id="btn-list-bookings">Show bookings</button></p>
-  <ul id="bookings-list"></ul>
-  <pre id="out-albergues"></pre>
-</section>
-
-<section>
-  <h2>Avisos (live notices)</h2>
-  <p>
-    <select id="ronda-avisos"></select>
-    <select id="vol-avisos"></select>
-    <button id="btn-connect">Connect as this volunteer</button>
-  </p>
-  <p id="avisos-status">Not connected.</p>
-  <ul id="avisos-list"></ul>
-  <h3>Post a notice</h3>
-  <p>
-    <select id="aviso-audience">
-      <option value="all">Whole kraal</option>
-      <option value="rama">One rama</option>
-      <option value="role">One role</option>
-    </select>
-    <input id="aviso-target" placeholder="Rama or role name (e.g. Guías, Tesorera)">
-  </p>
-  <p><input id="aviso-title" placeholder="Title" size="40"></p>
-  <p><textarea id="aviso-body" placeholder="Details (optional)" rows="2" cols="40"></textarea></p>
-  <button id="btn-post">Send notice</button>
-  <pre id="out-aviso"></pre>
-</section>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
 <script>
-async function api(path) {
-  const res = await fetch(path);
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.detail || res.statusText);
-  return body;
-}
-function show(el, data) { el.textContent = JSON.stringify(data, null, 2); }
-function fail(el, err) { el.textContent = "Error: " + err.message; }
-
-async function loadRondas() {
-  const rondas = await api("/api/kraal/rondas");
-  for (const id of ["ronda-roster", "ronda-prev", "ronda-new", "ronda-meet", "ronda-avisos", "ronda-admin"]) {
-    const sel = document.getElementById(id);
-    const keep = sel.value;                                  // remember the current choice
-    sel.replaceChildren(...rondas.map(r => new Option(r.year_label, r.id)));
-    if (keep) sel.value = keep;
+// ---------- tiny helpers ----------
+// h() builds elements safely: text always goes in as text nodes, never as HTML.
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v === false || v == null) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
   }
-}
-
-document.getElementById("btn-roster").onclick = async () => {
-  const out = document.getElementById("out-roster");
-  try { show(out, await api(`/api/kraal/rondas/${document.getElementById("ronda-roster").value}/roster`)); }
-  catch (e) { fail(out, e); }
-};
-
-document.getElementById("btn-cont").onclick = async () => {
-  const out = document.getElementById("out-cont");
-  const prev = document.getElementById("ronda-prev").value;
-  const nw = document.getElementById("ronda-new").value;
-  try { show(out, await api(`/api/kraal/continuity?prev=${prev}&new=${nw}`)); }
-  catch (e) { fail(out, e); }
-};
-
-document.getElementById("btn-meet").onclick = async () => {
-  const list = document.getElementById("meet-list");
-  const out = document.getElementById("out-meet");
-  try {
-    const meetings = await api(`/api/actas/meetings?ronda_id=${document.getElementById("ronda-meet").value}`);
-    list.replaceChildren(...meetings.map(m => {
-      const li = document.createElement("li");
-      const b = document.createElement("button");
-      b.textContent = `${m.date}: ${m.title}`;
-      b.onclick = async () => show(out, await api(`/api/actas/meetings/${m.id}`));
-      li.append(b);
-      return li;
-    }));
-  } catch (e) { fail(out, e); }
-};
-
-
-// ----- Avisos: live notices over Server-Sent Events -----
-let source = null;   // the open EventSource, if any
-let volunteerNames = {};   // id -> name, so vote results can show who voted
-
-async function loadVolunteers() {
-  const vols = await api("/api/kraal/volunteers");
-  volunteerNames = Object.fromEntries(vols.map(v => [v.id, v.name]));
-  for (const id of ["vol-avisos", "vol-admin-rama", "vol-admin-role", "vol-vote"]) {
-    const sel = document.getElementById(id);
-    const keep = sel.value;
-    sel.replaceChildren(...vols.map(v => new Option(v.name, v.id)));
-    if (keep) sel.value = keep;
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
   }
+  return el;
+}
+const $ = sel => document.querySelector(sel);
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const d = data.detail;
+    throw new Error(typeof d === "string" ? d : Array.isArray(d) ? d.map(x => x.msg).join("; ") : res.statusText);
+  }
+  return data;
 }
 
-function addNotice(n) {
-  const li = document.createElement("li");
-  const strong = document.createElement("strong");
-  strong.textContent = n.title;
-  const meta = document.createElement("small");
-  meta.textContent = ` (${n.topic}, ${n.created_at})`;
-  li.append(strong, meta);
-  if (n.body) { const p = document.createElement("div"); p.textContent = n.body; li.append(p); }
-  document.getElementById("avisos-list").prepend(li);     // newest on top
+function toast(text, kind) {
+  const t = h("div", {class: "toast" + (kind === "error" ? " error" : "")}, text);
+  $("#toasts").append(t);
+  setTimeout(() => t.remove(), kind === "error" ? 6000 : 4000);
 }
 
-document.getElementById("btn-connect").onclick = async () => {
-  const ronda = document.getElementById("ronda-avisos").value;
-  const vol = document.getElementById("vol-avisos");
-  const status = document.getElementById("avisos-status");
-  if (source) source.close();                                // switching person: close the old stream
-  document.getElementById("avisos-list").replaceChildren();
-  try {
-    const topics = await api(`/api/avisos/topics?ronda_id=${ronda}&volunteer_id=${vol.value}`);
-    status.textContent = `Connected as ${vol.selectedOptions[0].text}. Listening to: ${topics.join(", ")}`;
-  } catch (e) { fail(status, e); return; }
-  source = new EventSource(`/api/avisos/stream?ronda_id=${ronda}&volunteer_id=${vol.value}`);
-  source.addEventListener("notice", e => addNotice(JSON.parse(e.data)));
-  source.onerror = () => { status.textContent = "Connection lost, reconnecting..."; };
-};
-
-document.getElementById("btn-post").onclick = async () => {
-  const out = document.getElementById("out-aviso");
-  const payload = {
-    ronda_id: Number(document.getElementById("ronda-avisos").value),
-    audience: document.getElementById("aviso-audience").value,
-    target: document.getElementById("aviso-target").value || null,
-    title: document.getElementById("aviso-title").value,
-    body: document.getElementById("aviso-body").value || null,
-  };
-  try {
-    const res = await fetch("/api/avisos", {
-      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
-    });
-    const body = await res.json();
-    if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
-    show(out, body);
-  } catch (e) { fail(out, e); }
-};
-
-loadVolunteers().catch(e => fail(document.getElementById("avisos-status"), e));
-
-// ----- Gestión: forms that add data through the same API /docs uses -----
-const adminOut = document.getElementById("out-admin");
-const val = id => document.getElementById(id).value;
-const cents = id => Math.round(parseFloat(val(id)) * 100);
-const adminRonda = () => val("ronda-admin");
-
-async function send(path, payload) {
-  const res = await fetch(path, {
-    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
+// Wraps a form: no page reload, reads its fields, runs the action, reports success or the server's error.
+function onSubmit(form, action, okText) {
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    try { await action(data); if (okText) toast(okText); form.reset(); await render(); }
+    catch (err) { toast(err.message, "error"); }
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
-  return body;
+  return form;
+}
+async function act(fn, okText) {
+  try { await fn(); if (okText) toast(okText); await render(); } catch (err) { toast(err.message, "error"); }
 }
 
-async function loadRamasAndBudgets() {
-  const ronda = adminRonda();
-  if (!ronda) return;
-  const ramas = await api(`/api/kraal/rondas/${ronda}/ramas`);
-  document.getElementById("rama-admin").replaceChildren(...ramas.map(r => new Option(r.name, r.id)));
-  const budgets = await api(`/api/actas/budgets?ronda_id=${ronda}`);
-  document.getElementById("budget-admin").replaceChildren(...budgets.map(b =>
-    new Option(`${b.category} (${(b.remaining_cents / 100).toFixed(2)} EUR left)`, b.id)));
+const eur = cents => (cents / 100).toLocaleString("es-ES", {style: "currency", currency: "EUR"});
+const toCents = text => Math.round(parseFloat(String(text).replace(",", ".")) * 100);
+const fmtDate = iso => new Date(iso + "T12:00").toLocaleDateString("es-ES", {day: "numeric", month: "short", year: "numeric"});
+// SQLite's datetime('now') is UTC; closing times typed in the page are local.
+const fmtDateTime = (iso, utc) => new Date(iso.replace(" ", "T") + (utc ? "Z" : ""))
+  .toLocaleString("es-ES", {dateStyle: "medium", timeStyle: "short"});
+const slug = s => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const RAMA_COLORS = ["#2F6B4F", "#3A7CA5", "#7A4E8A", "#B7791F", "#2A8C82", "#B5506B"];
+// The association's ramas, youngest first. Every new ronda can create them in one click.
+const RAMAS_HABITUALES = ["Arcoíris", "Alitas", "Guías", "Pioneras", "Fuegos"];
+const HABITUAL_COLORS = ["#7A4E8A", "#3A7CA5", "#2F6B4F", "#B7791F", "#B5506B"];
+const ramaOrder = name => { const i = RAMAS_HABITUALES.findIndex(x => slug(x) === slug(name)); return i < 0 ? 99 : i; };
+// Each rama of the current ronda gets its own colour, in alphabetical order, so no two clash.
+function ramaColor(name) {
+  const k = ramaOrder(name);
+  if (k < 99) return HABITUAL_COLORS[k];
+  const i = state.ramas.findIndex(r => slug(r.name) === slug(name));
+  if (i >= 0) return RAMA_COLORS[i % RAMA_COLORS.length];
+  let n = 0; for (const ch of slug(name)) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
+  return RAMA_COLORS[n % RAMA_COLORS.length];
+}
+function field(label, input) { return h("label", {class: "field"}, label, input); }
+function options(items, valueKey, textKey, placeholder) {
+  return [placeholder ? h("option", {value: ""}, placeholder) : null,
+          ...items.map(x => h("option", {value: x[valueKey]}, x[textKey]))];
 }
 
-// Run an action, show its result (or error), then refresh every dropdown.
-function action(buttonId, run) {
-  document.getElementById(buttonId).onclick = async () => {
-    try {
-      show(adminOut, await run());
-      await loadRondas(); await loadVolunteers(); await loadRamasAndBudgets();
-    } catch (e) { fail(adminOut, e); }
-  };
-}
-
-action("btn-new-ronda", () => send("/api/kraal/rondas", {year_label: val("new-ronda-label"), start_date: val("new-ronda-date")}));
-action("btn-new-vol", () => send("/api/kraal/volunteers", {name: val("new-vol-name")}));
-action("btn-new-rama", () => send(`/api/kraal/rondas/${adminRonda()}/ramas`, {name: val("new-rama-name")}));
-action("btn-assign-rama", () => send(`/api/kraal/ramas/${val("rama-admin")}/members`, {volunteer_id: Number(val("vol-admin-rama"))}));
-action("btn-assign-role", () => send(`/api/kraal/rondas/${adminRonda()}/roles`, {volunteer_id: Number(val("vol-admin-role")), role_name: val("new-role-name")}));
-action("btn-new-budget", () => send("/api/actas/budgets", {ronda_id: Number(adminRonda()), category: val("budget-cat"), allocated_cents: cents("budget-eur")}));
-action("btn-new-req", () => send(`/api/actas/budgets/${val("budget-admin")}/requests`, {rama: val("req-rama"), item: val("req-item"), amount_cents: cents("req-eur")}));
-action("btn-new-meeting", () => send("/api/actas/meetings", {ronda_id: Number(adminRonda()), date: val("meet-date"), title: val("meet-title")}));
-action("btn-new-agenda", () => send(`/api/actas/meetings/${val("agenda-meeting-id")}/agenda`, {section_title: val("agenda-title")}));
-action("btn-new-decision", () => send(`/api/actas/agenda/${val("decision-agenda-id")}/decisions`, {description: val("decision-desc")}));
-action("btn-approve", () => send(`/api/actas/requests/${val("act-req-id")}/approve`, {}));
-action("btn-reject", () => send(`/api/actas/requests/${val("act-req-id")}/reject`, {}));
-action("btn-pay", () => send(`/api/actas/requests/${val("act-req-id")}/pay`, {payment_ref: val("act-ref")}));
-document.getElementById("btn-history").onclick = async () => {
-  try { show(adminOut, await api(`/api/actas/requests/${val("act-req-id")}/history`)); }
-  catch (e) { fail(adminOut, e); }
+// ---------- state ----------
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
-document.getElementById("ronda-admin").onchange = () => loadRamasAndBudgets().catch(e => fail(adminOut, e));
+const state = {
+  view: store.get("view") || "avisos",
+  ronda: store.get("ronda"), me: store.get("me"),
+  rondas: [], volunteers: [], ramas: [],
+  notices: [], unread: 0, source: null, ready: false,
+  meeting: null,
+};
+const meName = () => (state.volunteers.find(v => String(v.id) === String(state.me)) || {}).name;
 
-// ----- Votaciones -----
-const voteOut = document.getElementById("out-vote");
-const decisionId = () => val("vote-decision");
-
-function showTally(t) {
-  const who = t.voters.map(v => `${volunteerNames[v.volunteer_id] || "#" + v.volunteer_id}: ${v.choice}`);
-  voteOut.textContent =
-    `Yes ${t.yes} · No ${t.no} · Abstain ${t.abstain} · ${t.voters.length} of ${t.electorate} in the kraal have voted\n` +
-    `Rule: ${t.rule} · Closes ${t.closes_at}${t.closed ? " (closed)" : ""}\n\n` + (who.join("\n") || "Nobody has voted yet");
+async function loadBasics() {
+  state.rondas = await api("/api/kraal/rondas");
+  state.volunteers = await api("/api/kraal/volunteers");
+  if (!state.rondas.some(r => String(r.id) === String(state.ronda))) state.ronda = state.rondas[0] ? String(state.rondas[0].id) : null;
+  if (!state.volunteers.some(v => String(v.id) === String(state.me))) state.me = null;
+  state.ramas = state.ronda ? await api(`/api/kraal/rondas/${state.ronda}/ramas`) : [];
+  state.ramas.sort((a, b) => ramaOrder(a.name) - ramaOrder(b.name) || a.name.localeCompare(b.name, "es"));
+  $("#ronda-select").replaceChildren(...options(state.rondas, "id", "year_label", state.rondas.length ? null : "Sin rondas"));
+  $("#ronda-select").value = state.ronda || "";
+  $("#me-select").replaceChildren(...options(state.volunteers, "id", "name", "Elige tu nombre"));
+  $("#me-select").value = state.me || "";
 }
-function voteAction(buttonId, run) {
-  document.getElementById(buttonId).onclick = async () => {
-    try { await run(); showTally(await api(`/api/actas/decisions/${decisionId()}/votes`)); }
-    catch (e) { fail(voteOut, e); }
-  };
+
+// ---------- live notices (Server-Sent Events) ----------
+function connect() {
+  if (state.source) state.source.close();
+  state.source = null; state.notices = []; state.unread = 0; state.ready = false; updateUnread();
+  if (!state.ronda || !state.me) { setLive(false, "Elige quién eres para recibir avisos"); renderBoard(); return; }
+  const src = new EventSource(`/api/avisos/stream?ronda_id=${state.ronda}&volunteer_id=${state.me}`);
+  state.source = src;
+  src.onopen = () => { setLive(true, `Recibiendo avisos como ${meName()}`); setTimeout(() => state.ready = true, 600); };
+  src.onerror = () => setLive(false, "Conexión perdida, reconectando…");
+  src.addEventListener("notice", e => {
+    const n = JSON.parse(e.data);
+    if (state.notices.some(x => x.id === n.id)) return;
+    state.notices.unshift(n);
+    if (!state.ready) { renderBoard(); return; }            // backlog right after connecting: no toasts
+    if (state.view === "avisos") renderBoard(n.id);
+    else { state.unread++; updateUnread(); toast(`Nuevo aviso: ${n.title}`); }
+  });
 }
-voteAction("btn-vote-open", () => send(`/api/actas/decisions/${decisionId()}/vote`, {closes_at: val("vote-closes"), rule: val("vote-rule")}));
-voteAction("btn-vote-cast", () => send(`/api/actas/decisions/${decisionId()}/votes`, {volunteer_id: Number(val("vol-vote")), choice: val("vote-choice")}));
-voteAction("btn-vote-tally", async () => {});
-voteAction("btn-vote-close", () => send(`/api/actas/decisions/${decisionId()}/vote/close`, {}));
+function setLive(on, text) { $("#live-dot").classList.toggle("on", on); $("#live-text").textContent = text; }
+function updateUnread() { const u = $("#unread"); u.hidden = state.unread === 0; u.textContent = state.unread; }
 
-
-
-
-// ----- Salidas y albergues -----
-const albOut = document.getElementById("out-albergues");
-
-async function showBookings() {
-  const rows = await api(`/api/actas/bookings?ronda_id=${adminRonda()}`);
-  document.getElementById("bookings-list").replaceChildren(...rows.map(b => {
-    const li = document.createElement("li");
-    const left = b.days_left >= 0 ? `${b.days_left} days left` : `${-b.days_left} days OVERDUE`;
-    li.textContent = b.status === "booked"
-      ? `Outing ${b.event_id}, ${b.activity_type} (${b.start_date}): booked at ${b.venue}`
-      : `Outing ${b.event_id}, ${b.activity_type} (${b.start_date}): book by ${b.book_by}, ${left}`;
-    if (b.urgent) li.style.fontWeight = "bold";
-    return li;
-  }));
+function audienceOf(topic) {
+  const [, , kind, target] = topic.split(".");
+  if (kind === "rama") {
+    const rama = state.ramas.find(r => slug(r.name) === target);
+    const name = rama ? rama.name : target;
+    return {label: `Rama ${name}`, color: ramaColor(name)};
+  }
+  if (kind === "role") return {label: `Para el cargo: ${target.replace(/-/g, " ")}`, color: "#EA580C"};
+  return {label: "Todo el kraal", color: "#111827"};
 }
-function albAction(buttonId, run) {
-  document.getElementById(buttonId).onclick = async () => {
-    try { show(albOut, await run()); await showBookings(); } catch (e) { fail(albOut, e); }
-  };
+function patch(n, fresh) {
+  const a = audienceOf(n.topic);
+  return h("article", {class: "patch" + (fresh ? " fresh" : ""), style: `--c:${a.color}`},
+    h("div", {class: "who"}, a.label), h("h3", null, n.title),
+    n.body ? h("p", {class: "body"}, n.body) : null,
+    h("time", {datetime: n.created_at}, fmtDateTime(n.created_at, true)));
 }
-albAction("btn-new-outing", () => send("/api/actas/calendar", {
-  ronda_id: Number(adminRonda()), start_date: val("out-start"), end_date: val("out-end") || null, activity_type: val("out-type")}));
-albAction("btn-plan-booking", () => send(`/api/actas/calendar/${val("book-event")}/booking`, {book_by: val("book-by") || null}));
-albAction("btn-booked", () => send(`/api/actas/calendar/${val("done-event")}/booking/done`, {
-  venue: val("done-venue"), request_id: val("done-request") ? Number(val("done-request")) : null}));
-albAction("btn-list-bookings", async () => "");
+function renderBoard(freshId) {
+  const board = $("#board"); if (!board) return;
+  board.replaceChildren(...(state.notices.length
+    ? state.notices.map(n => patch(n, n.id === freshId))
+    : [h("p", {class: "empty"}, "Todavía no hay avisos para ti. Cuando alguien publique uno para todo el kraal, tu rama o tu cargo, aparecerá aquí al momento.")]));
+}
 
+// ---------- views ----------
+const views = {};
 
-loadRondas().then(loadRamasAndBudgets).catch(e => fail(adminOut, e));
+views.avisos = async () => {
+  state.unread = 0; updateUnread();
+  const audience = h("select", {name: "audience"},
+    h("option", {value: "all"}, "Todo el kraal"), h("option", {value: "rama"}, "Una rama"), h("option", {value: "role"}, "Un cargo"));
+  const ramaField = field("Rama", h("select", {name: "rama"}, ...options(state.ramas, "name", "name")));
+  const roleField = field("Cargo", h("input", {name: "role", placeholder: "Tesorera", list: "role-names"}));
+  ramaField.hidden = roleField.hidden = true;
+  audience.onchange = () => { ramaField.hidden = audience.value !== "rama"; roleField.hidden = audience.value !== "role"; };
+
+  const form = onSubmit(h("form", null,
+    h("div", {class: "row"}, field("Para", audience), ramaField, roleField),
+    field("Título", h("input", {name: "title", required: true, placeholder: "Salida del sábado: quedamos a las 9"})),
+    field("Detalles (opcional)", h("textarea", {name: "body"})),
+    h("div", null, h("button", {class: "btn"}, "Publicar aviso"))),
+    d => api("/api/avisos", {ronda_id: Number(state.ronda), audience: d.audience,
+      target: d.audience === "rama" ? d.rama : d.audience === "role" ? d.role : null,
+      title: d.title, body: d.body || null}),
+    "Aviso publicado");
+
+  $("#view").replaceChildren(
+    h("header", null, h("h2", null, "Avisos"),
+      h("p", {class: "intro"}, "Lo que antes se perdía en el grupo de WhatsApp. Ves los avisos de todo el kraal, los de tu rama y los de tus cargos en cuanto se publican.")),
+    h("div", {class: "cols"},
+      h("section", null, state.me ? h("div", {class: "board", id: "board"})
+        : h("p", {class: "warn"}, "Elige tu nombre arriba, en «Estoy usando la app como», para ver tus avisos.")),
+      h("section", {class: "panel"}, h("h3", null, "Publicar un aviso"),
+        state.ronda ? form : h("p", {class: "empty"}, "Crea primero una ronda."))));
+  renderBoard();
+};
+
+views.kraal = async () => {
+  if (!state.ronda) return noRonda();
+  const [roster, roles] = await Promise.all([
+    api(`/api/kraal/rondas/${state.ronda}/roster`), api(`/api/kraal/rondas/${state.ronda}/roles`)]);
+  const assigned = new Set(Object.values(roster).flat());
+  const unassigned = state.volunteers.filter(v => !assigned.has(v.name));
+  const others = state.rondas.filter(r => String(r.id) !== String(state.ronda));
+  const missing = RAMAS_HABITUALES.filter(n => !state.ramas.some(r => slug(r.name) === slug(n)));
+  const unassignedIds = new Set(unassigned.map(v => v.id));
+  const addMissing = missing.length ? h("p", {class: "warn"}, `Faltan ramas en esta ronda: ${missing.join(", ")}. `,
+    h("button", {class: "btn small", onclick: () => act(async () => {
+      for (const name of missing) await api(`/api/kraal/rondas/${state.ronda}/ramas`, {name});
+    }, "Ramas creadas")}, "Crearlas")) : null;
+  // Fields shared by "add a person" and "put someone in a rama"
+  const ramaExtras = () => [
+    h("div", {class: "row"},
+      field("Disponibilidad (%)", h("input", {name: "availability", type: "number", min: 0, max: 100, step: 5, placeholder: "100"})),
+      field("Notas", h("input", {name: "notes", placeholder: "Solo fines de semana"})))];
+  const joinRama = (ramaId, volunteerId, d) => api(`/api/kraal/ramas/${ramaId}/members`, {
+    volunteer_id: Number(volunteerId),
+    availability_pct: d.availability === "" || d.availability == null ? null : Number(d.availability),
+    notes: d.notes || null});
+
+  const ramaBlocks = state.ramas.map(r => h("div", {class: "rama", style: `--c:${ramaColor(r.name)}`},
+    h("h3", null, r.name),
+    h("div", {class: "people"}, ...((roster[r.name] || []).length
+      ? roster[r.name].map(n => h("span", {class: "chip"}, n)) : [h("span", {class: "hint"}, "Nadie todavía")]))));
+
+  const continuityOut = h("div");
+  const continuity = h("form", null,
+    h("div", {class: "row"},
+      field("Comparar con la ronda", h("select", {name: "prev"}, ...options(others, "id", "year_label"))),
+      h("button", {class: "btn ghost"}, "Ver cambios")));
+  continuity.addEventListener("submit", async e => {
+    e.preventDefault();
+    try {
+      const prev = new FormData(continuity).get("prev");
+      const c = await api(`/api/kraal/continuity?prev=${prev}&new=${state.ronda}`);
+      const col = (title, names) => h("div", null, h("h3", null, `${title} (${names.length})`),
+        h("div", {class: "people"}, ...(names.length ? names.map(n => h("span", {class: "chip"}, n)) : [h("span", {class: "hint"}, "Nadie")])));
+      const moved = Object.entries(c.moved).map(([n, [a, b]]) => `${n}: ${a} → ${b}`);
+      continuityOut.replaceChildren(h("div", {class: "ramas"},
+        col("Se incorporan", c.joined), col("Se van", c.left), col("Siguen", c.stayed), col("Cambian de rama", moved)));
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  $("#view").replaceChildren(
+    h("header", null, h("h2", null, "Kraal y ramas"),
+      h("p", {class: "intro"}, "Quién está en el kraal esta ronda, en qué rama y con qué cargo. Cada ronda empieza de cero, así queda registrado cómo cambia el equipo de un año a otro.")),
+    h("div", {class: "cols"},
+      h("section", {class: "stack"},
+        addMissing,
+        state.ramas.length ? h("div", {class: "ramas"}, ...ramaBlocks)
+          : h("p", {class: "empty"}, "Esta ronda aún no tiene ramas."),
+        unassigned.length ? h("div", null, h("h3", null, "Sin rama esta ronda"),
+          h("div", {class: "people"}, ...unassigned.map(v => h("span", {class: "chip"}, v.name)))) : null,
+        h("div", null, h("h3", null, "Cargos"),
+          roles.length ? h("div", {class: "roles"}, ...roles.map(r => h("div", null, h("b", null, r.role_name), r.volunteer_name)))
+            : h("p", {class: "empty"}, "Nadie tiene cargo todavía.")),
+        others.length ? h("div", {class: "panel"}, h("h3", null, "Cambios respecto a otra ronda"), continuity, continuityOut) : null),
+      h("section", {class: "stack"},
+        h("div", {class: "panel"}, h("h3", null, "Añadir una persona al kraal"),
+          onSubmit(h("form", null,
+            h("div", {class: "row"}, field("Nombre", h("input", {name: "name", required: true})),
+              field("En el kraal desde (opcional)", h("input", {name: "joined", type: "date"}))),
+            field("Rama esta ronda", h("select", {name: "rama"}, ...options(state.ramas, "id", "name", "Sin rama por ahora"))),
+            ...ramaExtras(),
+            h("div", null, h("button", {class: "btn"}, "Añadir"))),
+            async d => {
+              const v = await api("/api/kraal/volunteers", {name: d.name, joined_date: d.joined || null});
+              if (d.rama) await joinRama(d.rama, v.id, d);
+            }, "Persona añadida")),
+        unassigned.length ? h("div", {class: "panel"}, h("h3", null, "Poner a alguien en una rama"),
+          h("p", {class: "hint"}, "Cada persona está en una sola rama por ronda, así que aquí solo aparece quien aún no tiene."),
+          onSubmit(h("form", null,
+            field("Persona", h("select", {name: "volunteer", required: true},
+              ...options(state.volunteers.filter(v => unassignedIds.has(v.id)), "id", "name", "Elige…"))),
+            field("Rama", h("select", {name: "rama", required: true}, ...options(state.ramas, "id", "name", "Elige…"))),
+            ...ramaExtras(),
+            h("div", null, h("button", {class: "btn"}, "Asignar"))),
+            d => joinRama(d.rama, d.volunteer, d), "Asignada a la rama")) : null,
+        h("div", {class: "panel"}, h("h3", null, "Dar un cargo"),
+          onSubmit(h("form", null,
+            field("Persona", h("select", {name: "volunteer", required: true}, ...options(state.volunteers, "id", "name", "Elige…"))),
+            field("Cargo", h("input", {name: "role", required: true, list: "role-names", placeholder: "Tesorera"})),
+            h("div", null, h("button", {class: "btn"}, "Dar cargo"))),
+            d => api(`/api/kraal/rondas/${state.ronda}/roles`, {volunteer_id: Number(d.volunteer), role_name: d.role}), "Cargo asignado")),
+        h("div", {class: "panel"}, h("h3", null, "Otra rama"),
+          onSubmit(h("form", null, h("div", {class: "row"}, field("Nombre", h("input", {name: "name", required: true, placeholder: "Otra rama"})),
+            h("button", {class: "btn"}, "Crear"))),
+            d => api(`/api/kraal/rondas/${state.ronda}/ramas`, {name: d.name}), "Rama creada")))));
+};
+
+views.reuniones = async () => {
+  if (!state.ronda) return noRonda();
+  const meetings = await api(`/api/actas/meetings?ronda_id=${state.ronda}`);
+  if (!meetings.some(m => m.id === state.meeting)) state.meeting = meetings[0] ? meetings[0].id : null;
+
+  const list = h("div", {class: "mlist"}, ...meetings.map(m => h("button", {
+      "aria-current": String(m.id === state.meeting), onclick: () => { state.meeting = m.id; render(); }},
+    m.title, h("small", null, fmtDate(m.date)))));
+  const newMeeting = onSubmit(h("form", {class: "panel"}, h("h3", null, "Nueva reunión"),
+      field("Fecha", h("input", {name: "date", type: "date", required: true})),
+      field("Título", h("input", {name: "title", required: true, placeholder: "Reunión de kraal de octubre"})),
+      h("div", null, h("button", {class: "btn"}, "Crear reunión"))),
+    async d => { state.meeting = (await api("/api/actas/meetings", {ronda_id: Number(state.ronda), date: d.date, title: d.title})).id; },
+    "Reunión creada");
+
+  let detail = h("p", {class: "empty"}, "Crea una reunión para empezar el acta.");
+  if (state.meeting) {
+    const m = await api(`/api/actas/meetings/${state.meeting}`);
+    const items = await Promise.all(m.agenda.map(async it =>
+      h("div", {class: "item"},
+        h("h3", null, it.section_title), it.content ? h("p", {class: "hint"}, it.content) : null,
+        ...(await Promise.all(it.decisions.map(decisionBlock))),
+        onSubmit(h("form", null, h("div", {class: "row"},
+            field("Nuevo acuerdo en este punto", h("input", {name: "description", required: true, placeholder: "Comprar 4 tiendas"})),
+            field("Resultado, si ya se decidió (opcional)", h("input", {name: "result", placeholder: "Aprobado por unanimidad"})),
+            h("button", {class: "btn ghost"}, "Añadir acuerdo"))),
+          d => api(`/api/actas/agenda/${it.id}/decisions`, {description: d.description, vote_result: d.result || null}), "Acuerdo añadido"))));
+    detail = h("div", {class: "stack"},
+      h("header", null, h("h2", null, m.title), h("p", {class: "hint"}, fmtDate(m.date))),
+      ...(items.length ? items : [h("p", {class: "empty"}, "El orden del día está vacío. Añade el primer punto.")]),
+      onSubmit(h("form", {class: "panel"}, h("h3", null, "Añadir un punto al orden del día"),
+          field("Punto", h("input", {name: "title", required: true, placeholder: "Material de campamento"})),
+          field("Detalles (opcional)", h("textarea", {name: "content", placeholder: "Qué hay que hablar"})),
+          h("div", null, h("button", {class: "btn"}, "Añadir punto"))),
+        d => api(`/api/actas/meetings/${state.meeting}/agenda`, {section_title: d.title, content: d.content || null}), "Punto añadido"));
+  }
+
+  $("#view").replaceChildren(
+    h("header", null, h("h2", null, "Reuniones y votos"),
+      h("p", {class: "intro"}, "El acta se escribe aquí, no a mano. Cada acuerdo puede votarse con nombre, y quien no pueda venir vota antes de la reunión.")),
+    h("div", {class: "meetings"}, h("div", {class: "stack"}, list, newMeeting), detail));
+};
+
+async function decisionBlock(d) {
+  const box = h("div", {class: "decision"}, h("strong", null, d.description));
+  let t = null;
+  try { t = await api(`/api/actas/decisions/${d.id}/votes`); } catch { /* no vote opened on this decision */ }
+  if (!t) {
+    box.append(d.vote_result ? h("p", null, d.vote_result) : h("details", null, h("summary", null, "Someter a votación"), onSubmit(h("form", null, h("div", {class: "row"},
+        field("Se puede votar hasta", h("input", {name: "closes_at", type: "datetime-local", required: true})),
+        field("Se aprueba con", h("select", {name: "rule"},
+          h("option", {value: "majority_of_cast"}, "Más síes que noes"),
+          h("option", {value: "majority_of_kraal"}, "Más de la mitad del kraal"))),
+        h("button", {class: "btn ghost"}, "Abrir votación"))),
+      x => api(`/api/actas/decisions/${d.id}/vote`, {closes_at: x.closes_at, rule: x.rule}), "Votación abierta")));
+    return box;
+  }
+  const total = Math.max(t.electorate, 1);
+  const pct = n => `width:${(n / total) * 100}%`;
+  const said = {yes: "sí", no: "no", abstain: "abstención"};
+  const names = t.voters.map(v => `${(state.volunteers.find(x => x.id === v.volunteer_id) || {}).name || "#" + v.volunteer_id} (${said[v.choice]})`);
+  const myVote = t.voters.find(v => String(v.volunteer_id) === String(state.me));
+  const open = !t.closed && new Date(t.closes_at) > new Date();
+  const vote = choice => act(() => api(`/api/actas/decisions/${d.id}/votes`, {volunteer_id: Number(state.me), choice}), "Voto registrado");
+
+  box.append(
+    h("div", {class: "tally", role: "img", "aria-label": `${t.yes} sí, ${t.no} no, ${t.abstain} abstenciones de ${t.electorate} personas`},
+      h("span", {class: "y", style: pct(t.yes)}), h("span", {class: "n", style: pct(t.no)}), h("span", {class: "a", style: pct(t.abstain)})),
+    h("div", {class: "legend"}, h("span", null, `${t.yes} sí`), h("span", null, `${t.no} no`), h("span", null, `${t.abstain} abstención`),
+      h("span", null, `Han votado ${t.voters.length} de ${t.electorate}`)),
+    t.closed ? h("p", null, h("strong", null, "Resultado: "), d.vote_result || "cerrada")
+      : h("p", {class: "hint"}, `${open ? "Se puede votar hasta el" : "La votación terminó el"} ${fmtDateTime(t.closes_at)}. Se aprueba con ${t.rule === "majority_of_kraal" ? "más de la mitad del kraal" : "más síes que noes"}.`),
+    names.length ? h("p", {class: "hint"}, "Han votado: " + names.join(", ")) : null);
+
+  const buttons = h("div", {class: "actions"});
+  if (open && state.me && !myVote) buttons.append(
+    h("button", {class: "btn small", onclick: () => vote("yes")}, "Votar sí"),
+    h("button", {class: "btn small ghost", onclick: () => vote("no")}, "Votar no"),
+    h("button", {class: "btn small ghost", onclick: () => vote("abstain")}, "Abstenerme"));
+  if (open && !state.me) buttons.append(h("span", {class: "hint"}, "Elige tu nombre arriba para votar."));
+  if (open && myVote) buttons.append(h("span", {class: "hint"}, "Ya has votado."));
+  if (!t.closed && !open) buttons.append(h("button", {class: "btn small",
+    onclick: () => act(() => api(`/api/actas/decisions/${d.id}/vote/close`, {}), "Votación cerrada y contada")}, "Cerrar y contar"));
+  if (buttons.childNodes.length) box.append(buttons);
+  return box;
+}
+
+views.tesoreria = async () => {
+  if (!state.ronda) return noRonda();
+  const [budgets, requests] = await Promise.all([
+    api(`/api/actas/budgets?ronda_id=${state.ronda}`), api(`/api/actas/requests?ronda_id=${state.ronda}`)]);
+
+  const budgetRows = budgets.map(b => {
+    const ratio = b.allocated_cents ? b.remaining_cents / b.allocated_cents : 0;
+    return h("li", null,
+      h("div", {class: "line"}, h("strong", null, b.category), h("span", null, `Quedan ${eur(b.remaining_cents)} de ${eur(b.allocated_cents)}`)),
+      h("div", {class: "bar" + (ratio <= 0 ? " out" : ratio < .25 ? " low" : "")}, h("span", {style: `width:${Math.max(0, ratio) * 100}%`})));
+  });
+
+  const resultBox = h("div");
+  const requestForm = h("form", null,
+    field("Partida", h("select", {name: "budget", required: true}, ...options(budgets, "id", "category", "Elige…"))),
+    field("Para la rama", h("select", {name: "rama", required: true}, ...options(state.ramas, "name", "name", "Elige…"))),
+    h("div", {class: "row"}, field("Qué se necesita", h("input", {name: "item", required: true, placeholder: "Tiendas de campaña"})),
+      field("Importe (€)", h("input", {name: "eur", required: true, inputmode: "decimal", placeholder: "120,00"}))),
+    h("div", null, h("button", {class: "btn"}, "Pedir")));
+  requestForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(requestForm));
+    try {
+      const r = await api(`/api/actas/budgets/${d.budget}/requests`, {rama: d.rama, item: d.item, amount_cents: toCents(d.eur)});
+      const said = {pending: "Solicitud enviada: la tesorería ya tiene el aviso.", approved: "Aprobada automáticamente.", rejected: "Rechazada."}[r.status];
+      const dupes = [...new Set(r.similar.map(s => s.rama))];
+      resultBox.replaceChildren(h("p", {class: dupes.length ? "warn" : "hint"}, `${said} ${r.reason}.`,
+        dupes.length ? ` Ojo: ${dupes.join(", ")} ya pidió lo mismo esta ronda.` : ""));
+      await render();
+      $("#request-result")?.replaceChildren(resultBox);
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  const label = {pending: "Pendiente", approved: "Aprobada", rejected: "Rechazada", paid: "Pagada"};
+  const actionName = {submitted: "pedida", approved: "aprobada", rejected: "rechazada", paid: "pagada"};
+  const who = meName() || null;
+  // Same item asked for by another rama this ronda: tell the treasurer before approving.
+  const key = s => s.toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+  const askedBy = r => [...new Set(requests.filter(o => o.id !== r.id && o.status !== "rejected"
+    && key(o.item) === key(r.item) && o.rama !== r.rama).map(o => o.rama))];
+  const requestRows = requests.map(r => {
+    const dupes = r.status === "pending" ? askedBy(r) : [];
+    const history = h("ol", {class: "hint", hidden: true});
+    const actions = h("div", {class: "actions"});
+    if (r.status === "pending") actions.append(
+      h("button", {class: "btn small", onclick: () => act(() => api(`/api/actas/requests/${r.id}/approve`, {actor: who}), "Solicitud aprobada")}, "Aprobar"),
+      h("button", {class: "btn small danger", onclick: () => act(() => api(`/api/actas/requests/${r.id}/reject`, {actor: who}), "Solicitud rechazada")}, "Rechazar"));
+    if (r.status === "approved") actions.append(onSubmit(h("form", null,
+        h("input", {name: "ref", required: true, placeholder: "Nº de transferencia", "aria-label": "Referencia del pago", style: "width:12rem"}),
+        h("button", {class: "btn small"}, "Marcar pagada")),
+      d => api(`/api/actas/requests/${r.id}/pay`, {payment_ref: d.ref, actor: who}), "Pago registrado"));
+    actions.append(h("button", {class: "btn small ghost", onclick: async () => {
+      if (history.hidden) {
+        const evs = await api(`/api/actas/requests/${r.id}/history`);
+        history.replaceChildren(...evs.map(ev => h("li", null,
+          `${fmtDateTime(ev.created_at, true)}: ${actionName[ev.action] || ev.action}${ev.actor ? " por " + ev.actor : ""}` +
+          `${ev.payment_ref ? " (ref. " + ev.payment_ref + ")" : ""}${ev.note ? ". " + ev.note : ""}`)));
+      }
+      history.hidden = !history.hidden;
+    }}, "Historial"));
+    return h("li", null,
+      h("div", {class: "line"}, h("span", null, h("strong", null, r.item), `  ${r.rama}, ${r.category}`),
+        h("span", null, eur(r.amount_cents), " ", h("span", {class: "pill " + r.status}, label[r.status]))),
+      dupes.length ? h("p", {class: "warn"}, `También lo ha pedido ${dupes.join(", ")}. ¿Comprar una vez para todas?`) : null,
+      actions, history);
+  });
+
+  $("#view").replaceChildren(
+    h("header", null, h("h2", null, "Tesorería"),
+      h("p", {class: "intro"}, "Pedir dinero sin cadenas de mensajes: la solicitud se compara con lo que queda, avisa a la tesorería, y su historial sirve de justificante del pago.")),
+    h("div", {class: "cols"},
+      h("section", {class: "stack"},
+        h("div", null, h("h3", null, "Partidas"),
+          budgets.length ? h("ul", {class: "list"}, ...budgetRows)
+            : h("p", {class: "empty"}, "Todavía no hay partidas. Crea la primera, por ejemplo «Material».")),
+        h("div", null, h("h3", null, "Solicitudes"),
+          requests.length ? h("ul", {class: "list"}, ...requestRows)
+            : h("p", {class: "empty"}, "Nadie ha pedido nada todavía."))),
+      h("section", {class: "stack"},
+        h("div", {class: "panel"}, h("h3", null, "Pedir dinero"),
+          budgets.length && state.ramas.length ? requestForm : h("p", {class: "empty"}, "Hace falta al menos una partida y una rama."),
+          h("div", {id: "request-result"})),
+        h("div", {class: "panel"}, h("h3", null, "Nueva partida"),
+          onSubmit(h("form", null, field("Nombre", h("input", {name: "category", required: true, placeholder: "Material"})),
+              field("Presupuesto (€)", h("input", {name: "eur", required: true, inputmode: "decimal", placeholder: "500"})),
+              h("div", null, h("button", {class: "btn"}, "Crear partida"))),
+            d => api("/api/actas/budgets", {ronda_id: Number(state.ronda), category: d.category, allocated_cents: toCents(d.eur)}),
+            "Partida creada")))));
+};
+
+views.salidas = async () => {
+  if (!state.ronda) return noRonda();
+  const [events, bookings, requests] = await Promise.all([
+    api(`/api/actas/calendar?ronda_id=${state.ronda}`), api(`/api/actas/bookings?ronda_id=${state.ronda}`),
+    api(`/api/actas/requests?ronda_id=${state.ronda}`)]);
+  const byEvent = Object.fromEntries(bookings.map(b => [b.event_id, b]));
+  const payable = requests.filter(r => r.status === "approved" || r.status === "paid")
+    .map(r => ({id: r.id, text: `${r.item}, ${eur(r.amount_cents)}`}));
+
+  const rows = events.map(ev => {
+    const b = byEvent[ev.id];
+    const d = new Date(ev.start_date + "T12:00");
+    let status;
+    if (!b) {
+      status = onSubmit(h("form", {class: "row"},
+          field("Hay que reservar antes del (vacío: el plazo habitual)", h("input", {name: "book_by", type: "date"})),
+          h("button", {class: "btn small ghost"}, "Necesita albergue")),
+        x => api(`/api/actas/calendar/${ev.id}/booking`, {book_by: x.book_by || null}), "Avisado al kraal");
+    } else if (b.status === "pending") {
+      const left = b.days_left >= 0 ? `quedan ${b.days_left} días` : `el plazo pasó hace ${-b.days_left} días`;
+      status = h("div", {class: "stack", style: "gap:.5rem"},
+        h("p", {class: b.urgent ? "urgent" : ""}, `Reservar albergue antes del ${fmtDate(b.book_by)}: ${left}.`),
+        onSubmit(h("form", {class: "row"},
+            field("Albergue", h("input", {name: "venue", required: true, placeholder: "Albergue de Cercedilla"})),
+            field("Pago (opcional)", h("select", {name: "request"}, ...options(payable, "id", "text", "Sin vincular"))),
+            h("button", {class: "btn small"}, "Ya está reservado")),
+          x => api(`/api/actas/calendar/${ev.id}/booking/done`, {venue: x.venue, request_id: x.request ? Number(x.request) : null}),
+          "Reserva registrada"));
+    } else {
+      status = h("p", null, `Albergue reservado: ${b.venue}`, b.request_id ? ", con el pago vinculado." : ".");
+    }
+    return h("li", {class: "outing"},
+      h("div", {class: "date"}, h("b", null, d.getDate()), h("span", null, d.toLocaleDateString("es-ES", {month: "short"}))),
+      h("div", {class: "stack", style: "gap:.5rem"},
+        h("div", {class: "line"}, h("strong", null, ev.activity_type),
+          h("span", {class: "hint"}, ev.end_date ? `${fmtDate(ev.start_date)} – ${fmtDate(ev.end_date)}` : fmtDate(ev.start_date))),
+        ev.assigned_volunteers ? h("p", {class: "hint"}, `Van: ${ev.assigned_volunteers}`) : null,
+        status));
+  });
+
+  $("#view").replaceChildren(
+    h("header", null, h("h2", null, "Salidas y albergues"),
+      h("p", {class: "intro"}, "Las fechas de las salidas se fijan al empezar la ronda. Si una necesita albergue, el kraal recibe recordatorios hasta que se reserva, para no llegar tarde.")),
+    h("div", {class: "cols"},
+      h("section", null, events.length ? h("ul", {class: "list", style: "margin-top:0"}, ...rows)
+        : h("p", {class: "empty"}, "No hay salidas en el calendario. Añade la primera.")),
+      h("section", {class: "panel"}, h("h3", null, "Nueva salida"),
+        onSubmit(h("form", null, field("Qué", h("input", {name: "activity", required: true, placeholder: "Campamento de primavera"})),
+            h("div", {class: "row"}, field("Desde", h("input", {name: "start", type: "date", required: true})),
+              field("Hasta", h("input", {name: "end", type: "date"}))),
+            h("fieldset", {class: "field", style: "border:0;padding:0;margin:0"}, h("legend", {style: "margin-bottom:.375rem"}, "Quién va (opcional)"),
+              h("div", {class: "people"}, ...state.volunteers.map(v => h("label", {class: "chip", style: "display:flex;gap:.375rem;align-items:center"},
+                h("input", {type: "checkbox", name: "who", value: v.name, style: "width:auto"}), v.name)))),
+            h("div", null, h("button", {class: "btn"}, "Añadir salida"))),
+          d => api("/api/actas/calendar", {ronda_id: Number(state.ronda), start_date: d.start, end_date: d.end || null, activity_type: d.activity,
+            assigned_volunteers: [...document.querySelectorAll("input[name=who]:checked")].map(x => x.value).join(", ") || null}),
+          "Salida añadida"))));
+};
+
+function noRonda() {
+  $("#view").replaceChildren(h("div", {class: "panel", style: "max-width:36rem"}, h("h2", null, "Empieza creando una ronda"),
+    h("p", null, "Una ronda es un año de guidismo. Con ella podrás añadir ramas, personas, reuniones, presupuesto y salidas."),
+    h("div", null, h("button", {class: "btn", onclick: () => $("#ronda-dialog").showModal()}, "Nueva ronda"))));
+}
+
+// ---------- navigation and wiring ----------
+async function render() {
+  document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-current", b.dataset.view === state.view ? "page" : "false"));
+  try { await loadBasics(); await views[state.view](); }
+  catch (err) { toast(err.message, "error"); }
+}
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => { state.view = b.dataset.view; store.set("view", state.view); render(); });
+$("#ronda-select").onchange = e => { state.ronda = e.target.value; store.set("ronda", state.ronda); state.meeting = null; render().then(connect); };
+$("#me-select").onchange = e => { state.me = e.target.value; store.set("me", state.me); render().then(connect); };
+$("#new-ronda-btn").onclick = () => $("#ronda-dialog").showModal();
+$("#ronda-cancel").onclick = () => $("#ronda-dialog").close();
+onSubmit($("#ronda-form"), async d => {
+  const r = await api("/api/kraal/rondas", {year_label: d.year_label, start_date: d.start_date});
+  if (d.ramas) for (const name of RAMAS_HABITUALES) await api(`/api/kraal/rondas/${r.id}/ramas`, {name});
+  state.ronda = String(r.id); store.set("ronda", state.ronda); $("#ronda-dialog").close(); connect();
+}, "Ronda creada");
+
+document.body.append(h("datalist", {id: "role-names"},
+  ...["Presidenta", "Vicepresidenta", "Secretaria", "Tesorera", "Material", "Jefa de rama"].map(v => h("option", {value: v}))));
+
+render().then(connect);
+</script>
+<script>
+// ---------- background field: warm noise gradient + dot matrix (plain WebGL, no libraries) ----------
+// Only decoration. If WebGL is missing, the CSS gradient on <body> shows instead.
+(() => {
+  const canvas = document.getElementById("bg");
+  const gl = canvas.getContext("webgl", {alpha: false, antialias: true});
+  if (!gl) { canvas.remove(); return; }
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const vert = "attribute vec2 p; void main() { gl_Position = vec4(p, 0.0, 1.0); }";
+  const frag = `
+    precision mediump float;
+    uniform float t;
+    uniform vec2 res;
+    uniform vec2 ptr;
+    vec3 permute(vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
+    float snoise(vec2 v) {                      // 2D simplex noise
+      const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+      vec2 i = floor(v + dot(v, C.yy));
+      vec2 x0 = v - i + dot(i, C.xx);
+      vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+      vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1;
+      i = mod(i, 289.0);
+      vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+      vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+      m = m * m; m = m * m;
+      vec3 x = 2.0 * fract(p * C.www) - 1.0;
+      vec3 h = abs(x) - 0.5;
+      vec3 a0 = x - floor(x + 0.5);
+      m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+      vec3 g; g.x = a0.x * x0.x + h.x * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+      return 130.0 * dot(m, g);
+    }
+    void main() {
+      vec2 uv = gl_FragCoord.xy / res;
+      vec2 q = uv * vec2(res.x / res.y, 1.0);
+      float n = snoise(q * 1.1 + vec2(t * 0.035, -t * 0.025) + ptr * 0.12)
+              + 0.45 * snoise(q * 2.4 - vec2(t * 0.02, t * 0.04));
+      // warmth gathers toward the lower right, so text at the top left stays on cream
+      float g = smoothstep(0.15, 1.05, n * 0.35 + (1.0 - uv.y) * 0.55 + uv.x * 0.45 - 0.1);
+      vec3 cream = vec3(1.0, 0.969, 0.929);
+      vec3 peach = vec3(0.996, 0.855, 0.700);
+      vec3 hot = mix(vec3(0.918, 0.345, 0.047), vec3(0.882, 0.114, 0.282), uv.x);
+      vec3 col = mix(cream, peach, smoothstep(0.0, 0.55, g));
+      col = mix(col, hot, smoothstep(0.5, 1.0, g) * 0.6);
+      // dot matrix with a soft wave and a slight pointer drift
+      vec2 cellPos = (gl_FragCoord.xy + ptr * 12.0) / 16.0;
+      vec2 cell = fract(cellPos) - 0.5;
+      vec2 id = floor(cellPos);
+      float wave = sin(id.x * 0.32 + t * 0.8) * cos(id.y * 0.27 - t * 0.55);
+      float r = 0.07 + 0.06 * wave;
+      float dotMask = 1.0 - smoothstep(r, r + 0.05, length(cell));
+      float depth = 0.25 + 0.6 * smoothstep(0.0, 1.0, 1.0 - uv.y);   // soft depth fade
+      col = mix(col, vec3(1.0), dotMask * 0.55 * depth);
+      gl_FragColor = vec4(col, 1.0);
+    }`;
+
+  function shader(type, src) {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  let prog;
+  try {
+    prog = gl.createProgram();
+    gl.attachShader(prog, shader(gl.VERTEX_SHADER, vert));
+    gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, frag));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  } catch (err) { canvas.remove(); return; }
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "p");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const uT = gl.getUniformLocation(prog, "t"), uRes = gl.getUniformLocation(prog, "res"), uPtr = gl.getUniformLocation(prog, "ptr");
+
+  function resize() {
+    const s = Math.min(window.devicePixelRatio || 1, 1.5);
+    canvas.width = Math.floor(innerWidth * s); canvas.height = Math.floor(innerHeight * s);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  resize(); addEventListener("resize", resize);
+
+  const target = {x: 0, y: 0}, ptr = {x: 0, y: 0};
+  addEventListener("pointermove", e => { target.x = e.clientX / innerWidth - .5; target.y = .5 - e.clientY / innerHeight; });
+
+  const start = performance.now();
+  let last = 0;
+  function frame(now) {
+    if (!still && now - last < 33) { requestAnimationFrame(frame); return; }    // ~30 fps is plenty for a slow field
+    last = now;
+    ptr.x += (target.x - ptr.x) * .03; ptr.y += (target.y - ptr.y) * .03;    // eased, so it drifts
+    gl.uniform1f(uT, still ? 8 : (now - start) / 1000);
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform2f(uPtr, ptr.x, ptr.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    if (!still && !document.hidden) requestAnimationFrame(frame);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !still) requestAnimationFrame(frame); });
+  requestAnimationFrame(frame);
+})();
 </script>
 </body>
 </html>
