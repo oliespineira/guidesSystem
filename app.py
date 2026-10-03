@@ -1,4 +1,5 @@
 import os
+import asyncio
 from contextlib import asynccontextmanager
 
 from pathlib import Path#python's modern way of handling file paths, used to point at the web/ folder regardless of which OS someone is in
@@ -17,6 +18,10 @@ from src.actas.policies import get_policy
 from src.actas.tesoreria_routes import router as tesoreria_router
 
 
+from src.messaging.broker import Broker
+from src.messaging.notifier import BrokerNotifier
+from src.messaging.routes import router as avisos_router
+
 WEB_DIR = Path(__file__).parent / "web"
 
 @asynccontextmanager
@@ -25,14 +30,18 @@ async def lifespan(app: FastAPI): #defines an asynchronous generator function th
     init_db(conn) #the schema is created on every start.no manual setup
     conn.close()
     get_policy()
-    yield #nothing behind so shutdown does nothing extra.
-
+    broker = Broker(asyncio.get_running_loop())   # one broker per process, created once and injected
+    app.state.broker = broker
+    app.state.notifier = BrokerNotifier(broker)
+    yield
+    broker.close()                                 # wake open streams so shutdown doesn't hang
 
 app = FastAPI(title="Guias Torrelodones", lifespan=lifespan)
 
 app.include_router(kraal_router) #including routes created
 app.include_router(actas_router)
 app.include_router(tesoreria_router)
+app.include_router(avisos_router)
 
 #central error handler: runs whenever any route raises a domain error and doesn't catch it itself
 @app.exception_handler(DomainError)
