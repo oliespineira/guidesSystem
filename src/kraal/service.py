@@ -4,6 +4,7 @@ from src.db import require_row
 from src.errors import ConflictError, InvalidInputError
 from dataclasses import dataclass
 from src.validation import require_text
+from src.messaging.topics import all_topic, everything_in, rama_topic
 
 
 class DuplicateRoleError(ConflictError):
@@ -154,3 +155,26 @@ def _volunteer_rama_map(conn: sqlite3.Connection, ronda_id: int) -> dict[int, tu
         (ronda_id,),
     ).fetchall()
     return {row["volunteer_id"]: (row["volunteer_name"], row["rama_name"]) for row in rows}
+
+def topics_for_volunteer(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int) -> list[str]:
+    """Which notices this volunteer receives in this ronda.
+    Kraal members (anyone holding a role) see everything; everyone else sees
+    general notices plus their own rama's."""
+    require_row(conn, "rondas", ronda_id)
+    require_row(conn, "volunteers", volunteer_id)
+
+    holds_role = conn.execute(
+        "SELECT 1 FROM roles WHERE ronda_id = ? AND volunteer_id = ?", (ronda_id, volunteer_id)
+    ).fetchone()
+    if holds_role:
+        return [everything_in(ronda_id)]
+
+    patterns = [all_topic(ronda_id)]
+    rama = conn.execute(
+        """SELECT r.name FROM rama_assignments ra JOIN ramas r ON r.id = ra.rama_id
+           WHERE ra.ronda_id = ? AND ra.volunteer_id = ?""",
+        (ronda_id, volunteer_id),
+    ).fetchone()
+    if rama is not None:
+        patterns.append(rama_topic(ronda_id, rama["name"]))
+    return patterns

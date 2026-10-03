@@ -92,3 +92,37 @@ def test_continuity_report_unknown_ronda_is_not_found(conn):
     ronda = service.create_ronda(conn, "2026", "2026-09-01")
     with pytest.raises(NotFoundError):
         service.continuity_report(conn, ronda, 999)
+
+
+def test_rama_member_gets_general_and_own_rama_topics(conn):
+    r = service.create_ronda(conn, "2026", "2026-09-01")
+    ana = service.add_volunteer(conn, "Ana")
+    service.assign_to_rama(conn, service.create_rama(conn, r, "Guías"), ana)
+    assert service.topics_for_volunteer(conn, r, ana) == [f"ronda.{r}.all", f"ronda.{r}.rama.guias"]
+
+
+def test_volunteer_without_rama_gets_only_general_topic(conn):
+    r = service.create_ronda(conn, "2026", "2026-09-01")
+    ben = service.add_volunteer(conn, "Ben")
+    assert service.topics_for_volunteer(conn, r, ben) == [f"ronda.{r}.all"]
+
+
+def test_kraal_member_gets_everything_in_the_ronda(conn):
+    r = service.create_ronda(conn, "2026", "2026-09-01")
+    cai = service.add_volunteer(conn, "Cai")
+    service.assign_role(conn, r, cai, "Tesorera")
+    assert service.topics_for_volunteer(conn, r, cai) == [f"ronda.{r}.#"]
+
+
+def test_rama_from_another_ronda_does_not_count(conn):
+    r1 = service.create_ronda(conn, "2025", "2025-09-01")
+    r2 = service.create_ronda(conn, "2026", "2026-09-01")
+    dia = service.add_volunteer(conn, "Dia")
+    service.assign_to_rama(conn, service.create_rama(conn, r1, "Guías"), dia)
+    assert service.topics_for_volunteer(conn, r2, dia) == [f"ronda.{r2}.all"]
+
+
+def test_topics_for_unknown_volunteer_is_not_found(conn):
+    r = service.create_ronda(conn, "2026", "2026-09-01")
+    with pytest.raises(NotFoundError):
+        service.topics_for_volunteer(conn, r, 999)
