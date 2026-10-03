@@ -41,4 +41,11 @@ class RequestAction(BaseModel):
 class RequestPayment(RequestAction):
     payment_ref: str = Field(..., min_length=1)
 
+class VoteOpen(BaseModel):
+    closes_at: str                         # ISO date-time, parsed and checked in the service
+    rule: str = "majority_of_cast"
 
+
+class VoteCast(BaseModel):
+    volunteer_id: int
+    choice: str                            # yes | no | abstain, checked in the service

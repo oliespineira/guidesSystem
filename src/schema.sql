@@ -126,3 +126,20 @@ CREATE TABLE IF NOT EXISTS notices (
     body TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Domain 2 (Votaciones): a vote opened on a decision, and one row per volunteer who voted
+CREATE TABLE IF NOT EXISTS votings (
+    decision_id INTEGER PRIMARY KEY REFERENCES decisions(id),   -- at most one vote per decision
+    closes_at TEXT NOT NULL,                                     -- ISO datetime, e.g. 2026-10-05T20:00
+    rule TEXT NOT NULL,
+    closed INTEGER NOT NULL DEFAULT 0 CHECK (closed IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS votes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    decision_id INTEGER NOT NULL REFERENCES votings(decision_id),
+    volunteer_id INTEGER NOT NULL,      -- an opaque id checked through the seam, like ronda_id
+    choice TEXT NOT NULL CHECK (choice IN ('yes', 'no', 'abstain')),
+    cast_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (decision_id, volunteer_id)  -- one vote per person per decision
+);
