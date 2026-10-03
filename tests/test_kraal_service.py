@@ -107,13 +107,15 @@ def test_volunteer_without_rama_gets_only_general_topic(conn):
     assert service.topics_for_volunteer(conn, r, ben) == [f"ronda.{r}.all"]
 
 
-def test_kraal_member_gets_everything_in_the_ronda(conn):
+def test_role_holder_also_gets_a_topic_per_role(conn):
     r = service.create_ronda(conn, "2026", "2026-09-01")
     cai = service.add_volunteer(conn, "Cai")
+    service.assign_to_rama(conn, service.create_rama(conn, r, "Guías"), cai)
     service.assign_role(conn, r, cai, "Tesorera")
-    assert service.topics_for_volunteer(conn, r, cai) == [f"ronda.{r}.#"]
-
-
+    assert service.topics_for_volunteer(conn, r, cai) == [
+        f"ronda.{r}.all", f"ronda.{r}.rama.guias", f"ronda.{r}.role.tesorera",
+    ]
+    
 def test_rama_from_another_ronda_does_not_count(conn):
     r1 = service.create_ronda(conn, "2025", "2025-09-01")
     r2 = service.create_ronda(conn, "2026", "2026-09-01")
