@@ -188,3 +188,15 @@ def topics_for_volunteer(conn: sqlite3.Connection, ronda_id: int, volunteer_id: 
     ).fetchall()
     topics += [role_topic(ronda_id, r["role_name"]) for r in roles]
     return topics
+
+
+def ronda_member_ids(conn: sqlite3.Connection, ronda_id: int) -> set[int]:
+    """Everyone active in the kraal this ronda: in a rama, holding a role, or both."""
+    require_row(conn, "rondas", ronda_id)
+    rows = conn.execute(
+        """SELECT volunteer_id FROM rama_assignments WHERE ronda_id = ?
+           UNION
+           SELECT volunteer_id FROM roles WHERE ronda_id = ?""",
+        (ronda_id, ronda_id),
+    ).fetchall()
+    return {r["volunteer_id"] for r in rows}
