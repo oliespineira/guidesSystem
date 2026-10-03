@@ -54,3 +54,19 @@ def test_request_approve_pay_and_history_over_http(client, monkeypatch):
     assert client.post(f"/api/actas/requests/{rid}/pay", json={"payment_ref": "TRF-42"}).status_code == 200
     actions = [h["action"] for h in client.get(f"/api/actas/requests/{rid}/history").json()]
     assert actions == ["submitted", "approved", "paid"]
+
+
+def test_post_notice_to_a_rama_and_reject_bad_audience(client):
+    rid = _ronda(client).json()["id"]
+    r = client.post("/api/avisos", json={"ronda_id": rid, "audience": "rama", "target": "Guías",
+                                         "title": "Salida el sábado"})
+    assert r.status_code == 201 and r.json()["topic"] == f"ronda.{rid}.rama.guias"
+    bad = client.post("/api/avisos", json={"ronda_id": rid, "audience": "everyone", "title": "x"})
+    assert bad.status_code == 400
+
+
+def test_volunteer_topics_over_http(client):
+    rid = _ronda(client).json()["id"]
+    vid = client.post("/api/kraal/volunteers", json={"name": "Ana"}).json()["id"]
+    assert client.get("/api/kraal/volunteers").json() == [{"id": vid, "name": "Ana"}]
+    assert client.get(f"/api/avisos/topics?ronda_id={rid}&volunteer_id={vid}").json() == [f"ronda.{rid}.all"]

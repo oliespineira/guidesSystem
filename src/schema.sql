@@ -117,3 +117,12 @@ CREATE TABLE IF NOT EXISTS budget_requests(
 
 CREATE INDEX IF NOT EXISTS idx_requests_budget ON budget_requests(budget_id);
 CREATE INDEX IF NOT EXISTS idx_request_events_request ON request_events(request_id);
+
+-- Shared infrastructure: notices (owned by src/messaging, not by either domain)
+CREATE TABLE IF NOT EXISTS notices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

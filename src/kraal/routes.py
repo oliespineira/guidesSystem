@@ -17,6 +17,12 @@ def create_ronda(body: RondaCreate, conn: sqlite3.Connection = Depends(get_db)):
 def list_rondas(conn: sqlite3.Connection = Depends(get_db)):
     return service.list_rondas(conn)
 
+
+@router.get("/volunteers")
+def list_volunteers(conn: sqlite3.Connection = Depends(get_db)):
+    return service.list_volunteers(conn)
+
+
 @router.post("/volunteers", status_code=201)
 def add_volunteer(body: VolunteerCreate, conn: sqlite3.Connection = Depends(get_db)):
     joined = body.joined_date.isoformat() if body.joined_date else None
@@ -30,6 +36,11 @@ def assign_role(ronda_id: int, body: RoleAssign, conn: sqlite3.Connection = Depe
 def create_rama(ronda_id: int, body: RamaCreate, conn: sqlite3.Connection = Depends(get_db)):
     return {"id": service.create_rama(conn, ronda_id, body.name)}
 
+
+
+@router.get("/rondas/{ronda_id}/ramas")
+def list_ramas(ronda_id: int, conn: sqlite3.Connection = Depends(get_db)):
+    return service.list_ramas(conn, ronda_id)
 
 @router.post("/ramas/{rama_id}/members", status_code=201)
 def add_member(rama_id: int, body: RamaMember, conn: sqlite3.Connection = Depends(get_db)):

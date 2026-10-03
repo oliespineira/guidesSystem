@@ -4,6 +4,7 @@ from src.db import require_row
 from src.errors import ConflictError, InvalidInputError
 from dataclasses import dataclass
 from src.validation import require_text
+from src.messaging.topics import all_topic, rama_topic, role_topic
 
 
 class DuplicateRoleError(ConflictError):
@@ -31,6 +32,11 @@ def list_rondas(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute("SELECT * FROM rondas ORDER BY start_date DESC").fetchall()
     return [dict(r) for r in rows]
 
+
+
+def list_volunteers(conn: sqlite3.Connection) -> list[dict]:
+    rows = conn.execute("SELECT id, name FROM volunteers WHERE active = 1 ORDER BY name").fetchall()
+    return [dict(r) for r in rows]
 
 def add_volunteer(conn: sqlite3.Connection, name: str, joined_date: str | None = None) -> int:
     name= require_text(name, "Volunteer name")
@@ -70,6 +76,12 @@ def create_rama(conn: sqlite3.Connection, ronda_id: int, name: str) -> int:
         raise ConflictError(f"Rama '{name}' already exists in this ronda") from None
     conn.commit()
     return cur.lastrowid
+
+
+def list_ramas(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
+    require_row(conn, "rondas", ronda_id)
+    rows = conn.execute("SELECT id, name FROM ramas WHERE ronda_id = ? ORDER BY name", (ronda_id,)).fetchall()
+    return [dict(r) for r in rows]
 
 
 def assign_to_rama(
@@ -154,3 +166,25 @@ def _volunteer_rama_map(conn: sqlite3.Connection, ronda_id: int) -> dict[int, tu
         (ronda_id,),
     ).fetchall()
     return {row["volunteer_id"]: (row["volunteer_name"], row["rama_name"]) for row in rows}
+
+def topics_for_volunteer(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int) -> list[str]:
+    """Everyone is in the kraal, so everyone gets the general notices. On top of that:
+    their own rama's notices, and one topic for each role they hold this ronda."""
+    require_row(conn, "rondas", ronda_id)
+    require_row(conn, "volunteers", volunteer_id)
+
+    topics = [all_topic(ronda_id)]
+    rama = conn.execute(
+        """SELECT r.name FROM rama_assignments ra JOIN ramas r ON r.id = ra.rama_id
+           WHERE ra.ronda_id = ? AND ra.volunteer_id = ?""",
+        (ronda_id, volunteer_id),
+    ).fetchone()
+    if rama is not None:
+        topics.append(rama_topic(ronda_id, rama["name"]))
+
+    roles = conn.execute(
+        "SELECT role_name FROM roles WHERE ronda_id = ? AND volunteer_id = ? ORDER BY role_name",
+        (ronda_id, volunteer_id),
+    ).fetchall()
+    topics += [role_topic(ronda_id, r["role_name"]) for r in roles]
+    return topics
