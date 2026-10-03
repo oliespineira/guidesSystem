@@ -1,5 +1,6 @@
 import os
 import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from pathlib import Path#python's modern way of handling file paths, used to point at the web/ folder regardless of which OS someone is in
@@ -25,6 +26,11 @@ from src.messaging.routes import router as avisos_router
 
 from src.actas.votes_routes import router as votes_router
 
+
+from src.actas.albergues_routes import router as albergues_router
+from src.actas.albergues_task import booking_reminder_loop
+
+
 WEB_DIR = Path(__file__).parent / "web"
 
 @asynccontextmanager
@@ -36,8 +42,13 @@ async def lifespan(app: FastAPI): #defines an asynchronous generator function th
     broker = Broker(asyncio.get_running_loop())   # one broker per process, created once and injected
     app.state.broker = broker
     app.state.notifier = BrokerNotifier(broker)
+    app.state.notifier = BrokerNotifier(broker)
+    reminders = asyncio.create_task(booking_reminder_loop(app.state.notifier))   # in-process background task
     yield
-    broker.close()                                 # wake open streams so shutdown doesn't hang
+    reminders.cancel()                             # stop the reminder loop on shutdown
+    with contextlib.suppress(asyncio.CancelledError):
+        await reminders
+    broker.close()                                 # wake open streams so shutdown doesn't hang                               # wake open streams so shutdown doesn't hang
 
 app = FastAPI(title="Guias Torrelodones", lifespan=lifespan)
 
@@ -46,6 +57,8 @@ app.include_router(actas_router)
 app.include_router(tesoreria_router)
 app.include_router(avisos_router)
 app.include_router(votes_router)
+app.include_router(albergues_router)
+
 
 #central error handler: runs whenever any route raises a domain error and doesn't catch it itself
 @app.exception_handler(DomainError)

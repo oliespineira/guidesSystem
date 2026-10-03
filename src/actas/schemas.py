@@ -49,3 +49,12 @@ class VoteOpen(BaseModel):
 class VoteCast(BaseModel):
     volunteer_id: int
     choice: str                            # yes | no | abstain, checked in the service
+
+
+class BookingPlan(BaseModel):
+    book_by: str | None = None             # default: start date minus BOOKING_LEAD_DAYS
+
+
+class BookingDone(BaseModel):
+    venue: str = Field(..., min_length=1)
+    request_id: int | None = None          # the tesorería request that paid for it, if any
