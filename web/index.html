@@ -615,7 +615,7 @@ async function decisionBlock(d) {
       h("span", null, `Han votado ${t.voters.length} de ${t.electorate}`)),
     t.closed ? h("p", null, h("strong", null, "Resultado: "), d.vote_result || "cerrada")
       : h("p", {class: "hint"}, `${open ? "Se puede votar hasta el" : "La votación terminó el"} ${fmtDateTime(t.closes_at)}. Se aprueba con ${t.rule === "majority_of_kraal" ? "más de la mitad del kraal" : "más síes que noes"}.`),
-    names.length ? h("p", {class: "hint"}, "Han votado: " + names.join(", ")) : null);
+    names.length ? h("p", {class: "hint"}, "Han votado: " + names.join(", ")) : "");
 
   const buttons = h("div", {class: "actions"});
   if (open && state.me && !myVote) buttons.append(
