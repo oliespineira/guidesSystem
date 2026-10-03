@@ -87,7 +87,7 @@ flowchart LR
   subgraph App["Single process — app.py + uvicorn"]
     KR["kraal/routes.py"] --> KS["kraal/service.py"]
     AR["actas/routes.py"] --> AS["actas/service.py"]
-    AS -. "_require_ronda (the seam)" .-> KS
+    AS -. "require_ronda (the seam)" .-> KS
     KS --> DB[("SQLite\nDATA_DIR/app.db")]
     AS --> DB
     KR & AR --> EH["central DomainError handler"]
@@ -270,3 +270,12 @@ guidesSystem/
 │   └── index.html            # minimal read-only frontend
 └── data/                    # SQLite file lives here (gitignored)
 ```
+
+APPROVAL_POLICY	reject_over_budget	reject_over_budget, auto_approve_small, always_to_meeting
+AUTO_APPROVE_LIMIT_CENTS	5000 (50 €)	Límite para auto_approve_small
+
+que mas añadir.
+Tabla de la API: añade las 7 rutas de tesorería.
+Limitaciones conocidas:
+la rama es texto libre, así que "Guias" y "Guías" cuentan como ramas distintas;
+los duplicados solo se detectan si el artículo coincide exactamente tras normalizarlo, así que "tiendas" y "tienda de campaña" no se detectan.
