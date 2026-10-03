@@ -115,7 +115,7 @@ def test_role_holder_also_gets_a_topic_per_role(conn):
     assert service.topics_for_volunteer(conn, r, cai) == [
         f"ronda.{r}.all", f"ronda.{r}.rama.guias", f"ronda.{r}.role.tesorera",
     ]
-    
+
 def test_rama_from_another_ronda_does_not_count(conn):
     r1 = service.create_ronda(conn, "2025", "2025-09-01")
     r2 = service.create_ronda(conn, "2026", "2026-09-01")
@@ -128,3 +128,16 @@ def test_topics_for_unknown_volunteer_is_not_found(conn):
     r = service.create_ronda(conn, "2026", "2026-09-01")
     with pytest.raises(NotFoundError):
         service.topics_for_volunteer(conn, r, 999)
+
+
+def test_list_ramas_only_returns_that_rondas_ramas(conn):
+    r1 = service.create_ronda(conn, "2025", "2025-09-01")
+    r2 = service.create_ronda(conn, "2026", "2026-09-01")
+    service.create_rama(conn, r1, "Guías")
+    alitas = service.create_rama(conn, r2, "Alitas")
+    assert service.list_ramas(conn, r2) == [{"id": alitas, "name": "Alitas"}]
+
+
+def test_list_ramas_unknown_ronda_is_not_found(conn):
+    with pytest.raises(NotFoundError):
+        service.list_ramas(conn, 999)

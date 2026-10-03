@@ -78,6 +78,12 @@ def create_rama(conn: sqlite3.Connection, ronda_id: int, name: str) -> int:
     return cur.lastrowid
 
 
+def list_ramas(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
+    require_row(conn, "rondas", ronda_id)
+    rows = conn.execute("SELECT id, name FROM ramas WHERE ronda_id = ? ORDER BY name", (ronda_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def assign_to_rama(
     conn: sqlite3.Connection,
     rama_id: int,

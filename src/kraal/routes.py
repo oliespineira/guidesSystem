@@ -37,6 +37,11 @@ def create_rama(ronda_id: int, body: RamaCreate, conn: sqlite3.Connection = Depe
     return {"id": service.create_rama(conn, ronda_id, body.name)}
 
 
+
+@router.get("/rondas/{ronda_id}/ramas")
+def list_ramas(ronda_id: int, conn: sqlite3.Connection = Depends(get_db)):
+    return service.list_ramas(conn, ronda_id)
+
 @router.post("/ramas/{rama_id}/members", status_code=201)
 def add_member(rama_id: int, body: RamaMember, conn: sqlite3.Connection = Depends(get_db)):
     return {"id": service.assign_to_rama(conn, rama_id, body.volunteer_id,
