@@ -33,6 +33,11 @@ def list_rondas(conn: sqlite3.Connection) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+
+def list_volunteers(conn: sqlite3.Connection) -> list[dict]:
+    rows = conn.execute("SELECT id, name FROM volunteers WHERE active = 1 ORDER BY name").fetchall()
+    return [dict(r) for r in rows]
+
 def add_volunteer(conn: sqlite3.Connection, name: str, joined_date: str | None = None) -> int:
     name= require_text(name, "Volunteer name")
     cur = conn.execute(

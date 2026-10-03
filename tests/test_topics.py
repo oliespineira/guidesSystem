@@ -1,6 +1,7 @@
 import pytest
 
 from src.messaging import topics
+from src.errors import InvalidInputError
 
 
 @pytest.mark.parametrize("pattern, topic, expected", [
@@ -31,3 +32,17 @@ def test_topic_builders():
     assert topics.all_topic(5) == "ronda.5.all"
     assert topics.rama_topic(5, "Guías") == "ronda.5.rama.guias"
     assert topics.role_topic(5, "Tesorera") == "ronda.5.role.tesorera"
+
+@pytest.mark.parametrize("audience, target, expected", [
+    ("all", None, "ronda.5.all"),
+    ("rama", "Guías", "ronda.5.rama.guias"),
+    ("role", "Tesorera", "ronda.5.role.tesorera"),
+])
+def test_notice_topic(audience, target, expected):
+    assert topics.notice_topic(5, audience, target) == expected
+
+
+@pytest.mark.parametrize("audience, target", [("rama", None), ("role", "  "), ("everyone", "x")])
+def test_notice_topic_rejects_bad_input(audience, target):
+    with pytest.raises(InvalidInputError):
+        topics.notice_topic(5, audience, target)
