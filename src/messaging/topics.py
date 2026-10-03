@@ -13,17 +13,14 @@ def all_topic(ronda_id: int) -> str:
     return f"ronda.{ronda_id}.all"
 
 
-def kraal_topic(ronda_id: int) -> str:
-    return f"ronda.{ronda_id}.kraal"
 
 
 def rama_topic(ronda_id: int, rama_name: str) -> str:
     return f"ronda.{ronda_id}.rama.{slug(rama_name)}"
 
 
-def everything_in(ronda_id: int) -> str:
-    return f"ronda.{ronda_id}.#"
-
+def role_topic(ronda_id: int, role_name: str) -> str:
+    return f"ronda.{ronda_id}.role.{slug(role_name)}"
 
 def matches(pattern: str, topic: str) -> bool:
     """'*' matches exactly one segment, '#' matches everything after it."""

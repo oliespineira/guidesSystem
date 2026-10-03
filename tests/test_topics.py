@@ -29,6 +29,5 @@ def test_slug(name, expected):
 
 def test_topic_builders():
     assert topics.all_topic(5) == "ronda.5.all"
-    assert topics.kraal_topic(5) == "ronda.5.kraal"
     assert topics.rama_topic(5, "Guías") == "ronda.5.rama.guias"
-    assert topics.everything_in(5) == "ronda.5.#"
+    assert topics.role_topic(5, "Tesorera") == "ronda.5.role.tesorera"
