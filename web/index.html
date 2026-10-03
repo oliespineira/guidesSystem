@@ -74,6 +74,16 @@
      <input id="req-eur" type="number" min="0" step="0.01" placeholder="EUR">
      <button id="btn-new-req">Submit request</button></p>
 
+  <h3>Meeting, agenda item and decision (in the selected ronda)</h3>
+  <p><input id="meet-date" type="date"> <input id="meet-title" placeholder="Meeting title">
+     <button id="btn-new-meeting">Create meeting</button></p>
+  <p><input id="agenda-meeting-id" type="number" placeholder="Meeting id">
+     <input id="agenda-title" placeholder="Agenda item, e.g. Material">
+     <button id="btn-new-agenda">Add agenda item</button></p>
+  <p><input id="decision-agenda-id" type="number" placeholder="Agenda item id">
+     <input id="decision-desc" placeholder="Decision, e.g. Buy 4 tents">
+     <button id="btn-new-decision">Record decision</button></p>
+
   <h3>Treasurer: act on a request</h3>
   <p><input id="act-req-id" type="number" placeholder="Request id">
      <input id="act-ref" placeholder="Payment ref (for pay)">
@@ -83,6 +93,27 @@
      <button id="btn-history">History</button></p>
 
   <pre id="out-admin"></pre>
+</section>
+
+<section>
+  <h2>Votaciones</h2>
+  <p>Decision id: <input id="vote-decision" type="number"></p>
+  <h3>Open a vote</h3>
+  <p>Closes at <input id="vote-closes" type="datetime-local">
+     <select id="vote-rule">
+       <option value="majority_of_cast">Majority of votes cast</option>
+       <option value="majority_of_kraal">Majority of the whole kraal</option>
+     </select>
+     <button id="btn-vote-open">Open vote</button></p>
+  <h3>Vote (also before the meeting, if you can't attend)</h3>
+  <p><select id="vol-vote"></select>
+     <select id="vote-choice">
+       <option value="yes">Yes</option><option value="no">No</option><option value="abstain">Abstain</option>
+     </select>
+     <button id="btn-vote-cast">Cast vote</button></p>
+  <p><button id="btn-vote-tally">Who has voted?</button>
+     <button id="btn-vote-close">Close and count</button></p>
+  <pre id="out-vote"></pre>
 </section>
 
 <section>
@@ -162,10 +193,12 @@ document.getElementById("btn-meet").onclick = async () => {
 
 // ----- Avisos: live notices over Server-Sent Events -----
 let source = null;   // the open EventSource, if any
+let volunteerNames = {};   // id -> name, so vote results can show who voted
 
 async function loadVolunteers() {
   const vols = await api("/api/kraal/volunteers");
-  for (const id of ["vol-avisos", "vol-admin-rama", "vol-admin-role"]) {
+  volunteerNames = Object.fromEntries(vols.map(v => [v.id, v.name]));
+  for (const id of ["vol-avisos", "vol-admin-rama", "vol-admin-role", "vol-vote"]) {
     const sel = document.getElementById(id);
     const keep = sel.value;
     sel.replaceChildren(...vols.map(v => new Option(v.name, v.id)));
@@ -262,6 +295,9 @@ action("btn-assign-rama", () => send(`/api/kraal/ramas/${val("rama-admin")}/memb
 action("btn-assign-role", () => send(`/api/kraal/rondas/${adminRonda()}/roles`, {volunteer_id: Number(val("vol-admin-role")), role_name: val("new-role-name")}));
 action("btn-new-budget", () => send("/api/actas/budgets", {ronda_id: Number(adminRonda()), category: val("budget-cat"), allocated_cents: cents("budget-eur")}));
 action("btn-new-req", () => send(`/api/actas/budgets/${val("budget-admin")}/requests`, {rama: val("req-rama"), item: val("req-item"), amount_cents: cents("req-eur")}));
+action("btn-new-meeting", () => send("/api/actas/meetings", {ronda_id: Number(adminRonda()), date: val("meet-date"), title: val("meet-title")}));
+action("btn-new-agenda", () => send(`/api/actas/meetings/${val("agenda-meeting-id")}/agenda`, {section_title: val("agenda-title")}));
+action("btn-new-decision", () => send(`/api/actas/agenda/${val("decision-agenda-id")}/decisions`, {description: val("decision-desc")}));
 action("btn-approve", () => send(`/api/actas/requests/${val("act-req-id")}/approve`, {}));
 action("btn-reject", () => send(`/api/actas/requests/${val("act-req-id")}/reject`, {}));
 action("btn-pay", () => send(`/api/actas/requests/${val("act-req-id")}/pay`, {payment_ref: val("act-ref")}));
@@ -270,6 +306,27 @@ document.getElementById("btn-history").onclick = async () => {
   catch (e) { fail(adminOut, e); }
 };
 document.getElementById("ronda-admin").onchange = () => loadRamasAndBudgets().catch(e => fail(adminOut, e));
+
+// ----- Votaciones -----
+const voteOut = document.getElementById("out-vote");
+const decisionId = () => val("vote-decision");
+
+function showTally(t) {
+  const who = t.voters.map(v => `${volunteerNames[v.volunteer_id] || "#" + v.volunteer_id}: ${v.choice}`);
+  voteOut.textContent =
+    `Yes ${t.yes} · No ${t.no} · Abstain ${t.abstain} · ${t.voters.length} of ${t.electorate} in the kraal have voted\n` +
+    `Rule: ${t.rule} · Closes ${t.closes_at}${t.closed ? " (closed)" : ""}\n\n` + (who.join("\n") || "Nobody has voted yet");
+}
+function voteAction(buttonId, run) {
+  document.getElementById(buttonId).onclick = async () => {
+    try { await run(); showTally(await api(`/api/actas/decisions/${decisionId()}/votes`)); }
+    catch (e) { fail(voteOut, e); }
+  };
+}
+voteAction("btn-vote-open", () => send(`/api/actas/decisions/${decisionId()}/vote`, {closes_at: val("vote-closes"), rule: val("vote-rule")}));
+voteAction("btn-vote-cast", () => send(`/api/actas/decisions/${decisionId()}/votes`, {volunteer_id: Number(val("vol-vote")), choice: val("vote-choice")}));
+voteAction("btn-vote-tally", async () => {});
+voteAction("btn-vote-close", () => send(`/api/actas/decisions/${decisionId()}/vote/close`, {}));
 
 loadRondas().then(loadRamasAndBudgets).catch(e => fail(adminOut, e));
 </script>
