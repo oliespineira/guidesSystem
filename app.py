@@ -42,7 +42,6 @@ async def lifespan(app: FastAPI): #defines an asynchronous generator function th
     broker = Broker(asyncio.get_running_loop())   # one broker per process, created once and injected
     app.state.broker = broker
     app.state.notifier = BrokerNotifier(broker)
-    app.state.notifier = BrokerNotifier(broker)
     reminders = asyncio.create_task(booking_reminder_loop(app.state.notifier))   # in-process background task
     yield
     reminders.cancel()                             # stop the reminder loop on shutdown
@@ -76,5 +75,6 @@ def index():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Open SSE streams never finish on their own, so give them 3 s and then cancel them on Ctrl+C.
+    uvicorn.run(app, host="0.0.0.0", port=port, timeout_graceful_shutdown=3)
     
