@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS budgets(
 -- rama is free text on purpose, like assigned_volunteers: no link to domain 1.
 CREATE TABLE IF NOT EXISTS budget_requests(
     id INTEGER PRIMARY KEY AUTOINCREMENT, 
-    budget_id INTEGER NNOT NULL REFERENCES budgets(id),
+    budget_id INTEGER NOT NULL REFERENCES budgets(id),
     rama TEXT NOT NULL,
     item TEXT NOT NULL,
     item_key TEXT NOT NULL,        -- normalised item, for duplicate detection
