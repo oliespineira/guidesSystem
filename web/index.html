@@ -199,10 +199,17 @@
   dialog::backdrop { background: rgba(17,24,39,.25); backdrop-filter: blur(6px); }
 
   /* Landing page */
-  .intro-screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 2rem; overflow-y: auto; }
-  .intro-card { max-width: 60rem; width: 100%; display: grid; gap: 2.5rem; animation: rise 800ms var(--ease) both; }
+  .intro-screen { position: fixed; inset: 0; z-index: 20; display: flex; padding: 2rem; overflow-y: auto; }
+  .intro-card { max-width: 60rem; width: 100%; margin: auto; display: grid; gap: 2.5rem; animation: rise 800ms var(--ease) both; }  /* margin:auto centres it without cutting off the top on small screens */
   .intro-card h1 { font-size: clamp(3rem, 8vw, 6rem); font-weight: 300; letter-spacing: -0.05em; line-height: .95; }
   .intro-card h1 span { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  /* Trefoil badge: a dot-matrix particle field in the shape of the Guides trefoil */
+  .intro-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2rem; align-items: center; }
+  .badge { width: min(70vw, 320px); aspect-ratio: 1 / 1; position: relative;
+    background: radial-gradient(60% 60% at 50% 42%, rgba(234,88,12,.10), transparent 70%); }
+  .badge canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; touch-action: none; }
+  .badge svg { width: 100%; height: 100%; }
+  @media (max-width: 52rem) { .intro-top { grid-template-columns: 1fr; } .badge { justify-self: center; width: min(60vw, 240px); } }
   .intro-card .lead { font-size: 1.125rem; line-height: 1.75; color: var(--ink-2); max-width: 38rem; margin-top: 1.25rem; }
   .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; }
   .feature { background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: .67px solid #fff; box-shadow: var(--shadow); padding: 1.25rem; display: grid; gap: .375rem; align-content: start; }
@@ -239,11 +246,19 @@
 <div class="slices" aria-hidden="true"></div>
 <section class="intro-screen" id="intro" hidden aria-labelledby="intro-title">
   <div class="intro-card">
+    <div class="intro-top">
     <div>
       <p class="hint">Guías Torrelodones · Kraal</p>
       <h1 id="intro-title">El kraal,<br><span>en un solo sitio.</span></h1>
       <p class="lead">Roles que cambian cada año, material que se pide dos veces, actas que nadie recuerda y albergues que se reservan tarde.
         Todo lo que hoy se pierde en el grupo de WhatsApp, ordenado y con registro.</p>
+    </div>
+    <div class="badge" aria-hidden="true">
+      <canvas id="trefoil">
+        <!-- shown only if the browser has no canvas: the plain trefoil logo -->
+        <svg viewBox="0 0 40 40"><g fill="#EA580C"><circle cx="20" cy="12" r="7"/><circle cx="12" cy="22" r="7"/><circle cx="28" cy="22" r="7"/><rect x="18" y="22" width="4" height="14" rx="2"/></g></svg>
+      </canvas>
+    </div>
     </div>
     <div class="features">
       <div class="feature"><small>Antes: el grupo de WhatsApp</small><b>Avisos</b><p>Cada persona recibe en directo solo lo de todo el kraal, su rama y su cargo.</p></div>
@@ -860,13 +875,112 @@ document.body.append(h("datalist", {id: "role-names"},
 function showIntro(show) {
   $("#intro").hidden = !show;
   document.querySelector(".shell").hidden = show;
-  if (show) $("#intro-start").focus();
+  if (show) { $("#intro").scrollTop = 0; $("#intro-start").focus({preventScroll: true}); }   // start at the top on small screens
 }
 $("#intro-start").onclick = () => { store.set("introSeen", "1"); showIntro(false); };
 $("#intro-open").onclick = () => showIntro(true);
 showIntro(!store.get("introSeen"));
 
 render().then(connect);
+
+// ---------- landing page: trefoil made of particles (plain canvas, no libraries) ----------
+(() => {
+  const cv = document.getElementById("trefoil");
+  const ctx = cv && cv.getContext ? cv.getContext("2d") : null;
+  if (!ctx) return;                                   // no canvas: the SVG logo inside it is shown instead
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Same shape as the sidebar logo (a 40 x 40 box): three leaves and a stem.
+  const leaves = [[20, 12, 7.2], [12, 22, 7.2], [28, 22, 7.2]];
+  const inStem = (x, y) => x >= 18 && x <= 22 && y >= 20 && y <= 36;
+  const pts = [];
+  for (let y = 3; y <= 37; y += 0.8) {
+    for (let x = 3; x <= 37; x += 0.8) {               // a regular grid: the "dot matrix"
+      let h = 0;
+      for (const [cx, cy, r] of leaves) {
+        const d = Math.hypot(x - cx, y - cy) / r;
+        if (d < 1) h = Math.max(h, Math.sqrt(1 - d * d));   // each leaf bulges like a dome
+      }
+      if (h === 0 && !inStem(x, y)) continue;
+      if (h === 0) h = 0.3;
+      const t = (x - 3) / 34;                          // left-to-right colour: orange to rose
+      const col = `rgb(${234 - 9 * t | 0},${88 - 59 * t | 0},${12 + 60 * t | 0})`;
+      const base = { x: (x - 20) / 18, y: (y - 22) / 18, seed: Math.random() * 6.283, col };
+      pts.push({ ...base, z: h * 0.32 });              // front face
+      pts.push({ ...base, z: -h * 0.18 });             // back face, for depth when it turns
+    }
+  }
+
+  let dpr = 1;
+  function resize() {
+    dpr = Math.min(devicePixelRatio || 1, 2);          // DPR clamp
+    cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr;
+  }
+  resize(); addEventListener("resize", resize);
+
+  // Pointer: the whole page tilts it a little; over the badge it reacts strongly.
+  const badge = cv.parentElement;
+  const target = { x: 0, y: 0 }, ptr = { x: 0, y: 0 };
+  const mouse = { x: -1e4, y: -1e4, over: false };       // pointer position in canvas pixels
+  let hover = 0, burstAt = -10;
+  addEventListener("pointermove", e => { target.x = e.clientX / innerWidth - .5; target.y = e.clientY / innerHeight - .5; });
+  badge.addEventListener("pointermove", e => {
+    const r = cv.getBoundingClientRect();
+    mouse.x = (e.clientX - r.left) * dpr; mouse.y = (e.clientY - r.top) * dpr; mouse.over = true;
+    target.x = (e.clientX - r.left) / r.width - .5;       // over the badge, follow the pointer much more closely
+    target.y = (e.clientY - r.top) / r.height - .5;
+  });
+  badge.addEventListener("pointerleave", () => { mouse.over = false; mouse.x = mouse.y = -1e4; });
+  badge.addEventListener("pointerdown", () => { burstAt = performance.now() / 1000; });   // click or tap: the dots burst and come back
+
+  function draw(time) {
+    const w = cv.width, h = cv.height;
+    ctx.clearRect(0, 0, w, h);
+    ptr.x += (target.x - ptr.x) * .08; ptr.y += (target.y - ptr.y) * .08;
+    hover += ((mouse.over ? 1 : 0) - hover) * .08;                              // eases in and out
+    const breathe = 1 + 0.03 * Math.sin(time * 2 * Math.PI / 6) + 0.04 * hover;  // slow breathing pulse, bigger on hover
+    const tilt = 0.5 + 0.9 * hover;                                             // how much the pointer turns it
+    const ry = Math.sin(time * 0.35) * 0.45 * (1 - 0.6 * hover) + ptr.x * tilt;
+    const rx = Math.sin(time * 0.27) * 0.12 + ptr.y * tilt * 0.6;
+    const cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
+    const scale = w * 0.42 * breathe, f = 2.6;
+    const since = time - burstAt, burst = since >= 0 && since < 2 ? Math.exp(-since * 3) * Math.sin(since * 9) * 0.35 : 0;
+    const R = w * 0.18;                                                         // radius the pointer pushes dots away
+    const proj = pts.map(p => {
+      let x = p.x * cy + p.z * sy, z = -p.x * sy + p.z * cy;
+      const y = p.y * cx - z * sx; z = p.y * sx + z * cx;
+      const s = f / (f - z);
+      let px = w / 2 + x * scale * s * (1 + burst), py = h / 2 + y * scale * s * (1 + burst);
+      // Repel: dots near the pointer slide away, then spring back when it leaves.
+      let tx = 0, ty = 0;
+      const dx = px - mouse.x, dy = py - mouse.y, d = Math.hypot(dx, dy);
+      if (d < R && d > 0.01) { const k = (1 - d / R) ** 2 * R * 0.55; tx = dx / d * k; ty = dy / d * k; }
+      p.ox = (p.ox || 0) + (tx - (p.ox || 0)) * .18; p.oy = (p.oy || 0) + (ty - (p.oy || 0)) * .18;
+      return { sx: px + p.ox, sy: py + p.oy, z, s, col: p.col, near: d < R ? 1 - d / R : 0,
+               glow: 0.75 + 0.25 * Math.sin(time * (1.4 + 2 * hover) + p.seed) };
+    }).sort((a, b) => a.z - b.z);
+    for (const q of proj) {
+      const depth = Math.max(0, Math.min(1, (q.z + 0.35) / 0.7));
+      ctx.globalAlpha = Math.min(1, (0.12 + 0.78 * depth) * q.glow + 0.15 * hover + 0.5 * q.near);
+      ctx.fillStyle = q.col;
+      ctx.beginPath();
+      ctx.arc(q.sx, q.sy, (0.7 + 1.2 * depth + 1.4 * q.near) * dpr * q.s, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let last = 0, stillDrawn = false;
+  (function loop(now) {
+    requestAnimationFrame(loop);
+    if (document.getElementById("intro").hidden || document.hidden) { stillDrawn = false; return; }   // only while visible
+    if (cv.width !== Math.round(cv.clientWidth * dpr)) { resize(); stillDrawn = false; }               // it was hidden at load
+    if (still) { if (!stillDrawn) { draw(0); stillDrawn = true; } return; }                            // reduced motion: one frame
+    if (now - last < 33) return;                                                                        // ~30 fps
+    last = now;
+    draw(now / 1000);
+  })(0);
+})();
 </script>
 <script>
 // ---------- background field: warm noise gradient + dot matrix (plain WebGL, no libraries) ----------
