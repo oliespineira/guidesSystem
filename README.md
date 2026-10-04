@@ -517,7 +517,7 @@ logic, not routing or framework glue):
 python -m pytest --cov=src.kraal.service --cov=src.actas.service --cov=src.actas.tesoreria --cov=src.actas.policies --cov=src.actas.votes --cov=src.actas.seam --cov=src.actas.albergues --cov=src.messaging.topics --cov=src.messaging.broker --cov=src.messaging.notifier --cov-report=term-missing
 ```
 
-**Result: 137 tests pass, 99% coverage** (567 statements, 8 missed):
+**Result: 137 tests pass, 99% coverage** (582 statements, 8 missed):
 
 | File | Coverage |
 |---|---|
