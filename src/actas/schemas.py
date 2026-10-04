@@ -34,7 +34,7 @@ class RequestCreate(BaseModel):
 
 
 class RequestAction(BaseModel):
-    actor: str | None = None
+    volunteer_id: int                      # who is acting; the service checks they hold the treasurer role
     note: str | None = None
 
 

@@ -40,23 +40,28 @@ def _budget(client, ronda_id, cents=10000):
 
 def test_over_budget_request_is_rejected_and_cannot_be_paid(client, monkeypatch):
     monkeypatch.delenv("APPROVAL_POLICY", raising=False)
-    bid = _budget(client, _ronda(client).json()["id"])
+    rid = _ronda(client).json()["id"]
+    bid, tid = _budget(client, rid), _treasurer(client, rid)
     r = client.post(f"/api/actas/budgets/{bid}/requests",
                     json={"rama": "Guias", "item": "Tiendas", "amount_cents": 20000})
     assert r.status_code == 201 and r.json()["status"] == "rejected"
-    pay = client.post(f"/api/actas/requests/{r.json()['id']}/pay", json={"payment_ref": "TRF-1"})
+    pay = client.post(f"/api/actas/requests/{r.json()['id']}/pay", json={"payment_ref": "TRF-1", "volunteer_id": tid})
     assert pay.status_code == 409
 
 
 def test_request_approve_pay_and_history_over_http(client, monkeypatch):
     monkeypatch.delenv("APPROVAL_POLICY", raising=False)
-    bid = _budget(client, _ronda(client).json()["id"])
+    ronda_id = _ronda(client).json()["id"]
+    bid, tid = _budget(client, ronda_id), _treasurer(client, ronda_id, name="Marta")
+    ana = client.post("/api/kraal/volunteers", json={"name": "Ana"}).json()["id"]
+    assert client.get(f"/api/actas/treasury?ronda_id={ronda_id}").json() == {"role": "Tesorera", "volunteer_ids": [tid]}
     rid = client.post(f"/api/actas/budgets/{bid}/requests",
                       json={"rama": "Guias", "item": "Albergue", "amount_cents": 3000}).json()["id"]
-    assert client.post(f"/api/actas/requests/{rid}/approve", json={"actor": "Tesorera"}).status_code == 200
-    assert client.post(f"/api/actas/requests/{rid}/pay", json={"payment_ref": "TRF-42"}).status_code == 200
-    actions = [h["action"] for h in client.get(f"/api/actas/requests/{rid}/history").json()]
-    assert actions == ["submitted", "approved", "paid"]
+    assert client.post(f"/api/actas/requests/{rid}/approve", json={"volunteer_id": ana}).status_code == 403
+    assert client.post(f"/api/actas/requests/{rid}/approve", json={"volunteer_id": tid}).status_code == 200
+    assert client.post(f"/api/actas/requests/{rid}/pay", json={"payment_ref": "TRF-42", "volunteer_id": tid}).status_code == 200
+    history = client.get(f"/api/actas/requests/{rid}/history").json()
+    assert [(h["action"], h["actor"]) for h in history] == [("submitted", "Guias"), ("approved", "Marta"), ("paid", "Marta")]
 
 
 def test_post_notice_to_a_rama_and_reject_bad_audience(client):
@@ -116,11 +121,16 @@ def test_list_roles_and_requests_over_http(client):
 def test_request_routes_send_notices(client, monkeypatch):
     monkeypatch.delenv("APPROVAL_POLICY", raising=False)
     rid = _ronda(client).json()["id"]
-    bid = _budget(client, rid)
+    bid, tid = _budget(client, rid), _treasurer(client, rid)
     req = client.post(f"/api/actas/budgets/{bid}/requests",
                       json={"rama": "Guias", "item": "Tiendas", "amount_cents": 3000}).json()["id"]
-    client.post(f"/api/actas/requests/{req}/approve", json={"actor": "Tesorera"})
+    client.post(f"/api/actas/requests/{req}/approve", json={"volunteer_id": tid})
     conn = get_connection()
     topics = [r["topic"] for r in conn.execute("SELECT topic FROM notices ORDER BY id")]
     conn.close()
     assert topics == [f"ronda.{rid}.role.tesorera", f"ronda.{rid}.rama.guias"]
+
+def _treasurer(client, ronda_id, name="Tesorera"):
+    tid = client.post("/api/kraal/volunteers", json={"name": name}).json()["id"]
+    client.post(f"/api/kraal/rondas/{ronda_id}/roles", json={"volunteer_id": tid, "role_name": "Tesorera"})
+    return tid

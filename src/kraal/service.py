@@ -4,7 +4,7 @@ from src.db import require_row
 from src.errors import ConflictError, InvalidInputError
 from dataclasses import dataclass
 from src.validation import require_text
-from src.messaging.topics import all_topic, rama_topic, role_topic
+from src.messaging.topics import all_topic, rama_topic, role_topic, slug
 
 
 class DuplicateRoleError(ConflictError):
@@ -211,3 +211,9 @@ def ronda_member_ids(conn: sqlite3.Connection, ronda_id: int) -> set[int]:
         (ronda_id, ronda_id),
     ).fetchall()
     return {r["volunteer_id"] for r in rows}
+
+def role_holder_ids(conn: sqlite3.Connection, ronda_id: int, role_name: str) -> set[int]:
+    """Ids of whoever holds this role in this ronda. Compared as slugs, so 'Tesorera' matches 'tesorera'."""
+    require_row(conn, "rondas", ronda_id)
+    rows = conn.execute("SELECT volunteer_id, role_name FROM roles WHERE ronda_id = ?", (ronda_id,)).fetchall()
+    return {r["volunteer_id"] for r in rows if slug(r["role_name"]) == slug(role_name)}

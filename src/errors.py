@@ -17,3 +17,7 @@ class NotFoundError(DomainError):
 
 class ConflictError(DomainError):
     status_code = 409
+
+class ForbiddenError(DomainError):
+    """The person exists, but this action belongs to someone with a specific role."""
+    status_code = 403

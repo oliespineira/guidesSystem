@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass
 
 from src.actas.policies import ApprovalPolicy, Verdict
-from src.actas.seam import require_ronda 
+from src.actas.seam import require_ronda, require_role, role_holders
 from src.db import require_row
 from src.errors import ConflictError, InvalidInputError
 from src.validation import require_text
@@ -27,10 +27,23 @@ def _eur(cents: int) -> str:
     return f"{cents / 100:.2f} EUR"
 
 
-def _treasurer_topic(ronda_id: int) -> str:
+def _treasurer_role() -> str:
     # The role name is configuration, not code (§7.9): it can change from one ronda to the next.
-    return role_topic(ronda_id, os.environ.get("TREASURER_ROLE", "Tesorera"))
+    return os.environ.get("TREASURER_ROLE", "Tesorera")
 
+
+def _treasurer_topic(ronda_id: int) -> str:
+    return role_topic(ronda_id, _treasurer_role())
+
+
+def _ronda_of_budget(conn, budget_id: int) -> int:
+    return conn.execute("SELECT ronda_id FROM budgets WHERE id = ?", (budget_id,)).fetchone()["ronda_id"]
+
+
+def treasury_info(conn, ronda_id: int) -> dict:
+    """Who may approve, reject and pay requests in this ronda."""
+    require_ronda(conn, ronda_id)
+    return {"role": _treasurer_role(), "volunteer_ids": sorted(role_holders(conn, ronda_id, _treasurer_role()))}
 def create_budget(conn: sqlite3.Connection, ronda_id: int, category: str, allocated_cents: int) -> int:
     require_ronda(conn, ronda_id)
     category = require_text(category, "Category")
@@ -147,19 +160,22 @@ class RequestCommand:
     target_status: str
 
 
-    def __init__(self, request_id: int, actor: str | None = None, note: str | None = None):
+    def __init__(self, request_id: int, by: int, note: str | None = None):
         self.request_id = request_id
-        self.actor = actor
+        self.by = by                    # volunteer_id of whoever is acting: must hold the treasurer role
         self.note = note
 
     def execute(self, conn: sqlite3.Connection, notifier: Notifier | None = None) -> None:
         req = require_row(conn, "budget_requests", self.request_id)
+        # Business rule: only the treasurer of the request's ronda may approve, reject or pay.
+        require_role(conn, _ronda_of_budget(conn, req["budget_id"]), self.by, _treasurer_role())
+        actor = require_row(conn, "volunteers", self.by)["name"]
         if self.target_status not in ALLOWED.get(req["status"], set()):
             raise ConflictError(f"Cannot move a {req['status']} request to {self.target_status}")
         self._check(conn, req)
         conn.execute("UPDATE budget_requests SET status = ? WHERE id = ?",
                      (self.target_status, self.request_id))
-        _log_event(conn, self.request_id, self.target_status, self.actor, self.note, self._payment_ref())
+        _log_event(conn, self.request_id, self.target_status, actor, self.note, self._payment_ref())
         conn.commit()
         if notifier is not None:
             self._notify(conn, req, notifier)
@@ -195,8 +211,8 @@ class Reject(RequestCommand):
 class MarkPaid(RequestCommand):
     target_status = "paid"
 
-    def __init__(self, request_id: int, payment_ref: str, actor: str | None = None, note: str | None = None):
-        super().__init__(request_id, actor, note)
+    def __init__(self, request_id: int, payment_ref: str, by: int, note: str | None = None):
+        super().__init__(request_id, by, note)
         self.payment_ref = require_text(payment_ref, "Payment reference")
 
     def _payment_ref(self):

@@ -1,13 +1,22 @@
 import pytest
 
 from src.actas import policies, tesoreria
-from src.errors import ConflictError, InvalidInputError, NotFoundError
+from src.errors import ConflictError, ForbiddenError, InvalidInputError, NotFoundError
 from src.kraal import service as kraal
 
 
 @pytest.fixture
 def ronda(conn):
     return kraal.create_ronda(conn, "2026", "2026-09-01")
+
+
+@pytest.fixture
+def treasurer(conn, ronda):
+    """A volunteer who holds the treasurer role this ronda: the only one allowed to approve or pay.
+    Her name differs from the role name, so tests can tell the person from the role."""
+    t = kraal.add_volunteer(conn, "Marta")
+    kraal.assign_role(conn, ronda, t, "Tesorera")
+    return t
 
 
 @pytest.fixture
@@ -82,56 +91,95 @@ def test_list_budgets_shows_remaining_per_category(conn, ronda, budget):
     rows = {b["category"]: b["remaining_cents"] for b in tesoreria.list_budgets(conn, ronda)}
     assert rows == {"Albergues": 50000, "Material": 9000}
 
-def test_approving_consumes_budget(conn, budget):
+
+def test_approving_consumes_budget(conn, treasurer, budget):
     r = tesoreria.submit_request(conn, budget, "Guias", "Tiendas", 6000, policies.RejectOverBudget())
-    tesoreria.Approve(r.request_id, actor="Tesorera").execute(conn)
+    tesoreria.Approve(r.request_id, treasurer).execute(conn)
     assert tesoreria.remaining_cents(conn, budget) == 4000
 
 
-def test_cannot_pay_before_approval(conn, budget):
+def test_cannot_pay_before_approval(conn, treasurer, budget):
     r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
     with pytest.raises(ConflictError):
-        tesoreria.MarkPaid(r.request_id, payment_ref="TRF-1").execute(conn)
+        tesoreria.MarkPaid(r.request_id, payment_ref="TRF-1", by=treasurer).execute(conn)
 
 
-def test_cannot_approve_twice(conn, budget):
+def test_cannot_approve_twice(conn, treasurer, budget):
     r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
-    tesoreria.Approve(r.request_id).execute(conn)
+    tesoreria.Approve(r.request_id, treasurer).execute(conn)
     with pytest.raises(ConflictError):
-        tesoreria.Approve(r.request_id).execute(conn)
+        tesoreria.Approve(r.request_id, treasurer).execute(conn)
 
 
-def test_rejected_request_cannot_be_approved_later(conn, budget):
+def test_rejected_request_cannot_be_approved_later(conn, treasurer, budget):
     r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
-    tesoreria.Reject(r.request_id, note="Not this year").execute(conn)
+    tesoreria.Reject(r.request_id, treasurer, note="Not this year").execute(conn)
     with pytest.raises(ConflictError):
-        tesoreria.Approve(r.request_id).execute(conn)
+        tesoreria.Approve(r.request_id, treasurer).execute(conn)
 
 
-def test_approve_fails_if_money_was_spent_in_the_meantime(conn, budget):
+def test_approve_fails_if_money_was_spent_in_the_meantime(conn, treasurer, budget):
     first = tesoreria.submit_request(conn, budget, "Guias", "Tiendas", 6000, policies.RejectOverBudget())
     second = tesoreria.submit_request(conn, budget, "Alitas", "Albergue", 6000, policies.RejectOverBudget())
-    tesoreria.Approve(first.request_id).execute(conn)
+    tesoreria.Approve(first.request_id, treasurer).execute(conn)
     with pytest.raises(ConflictError):
-        tesoreria.Approve(second.request_id).execute(conn)
+        tesoreria.Approve(second.request_id, treasurer).execute(conn)
 
 
-def test_payment_needs_a_reference(conn, budget):
+def test_payment_needs_a_reference(conn, treasurer, budget):
     r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
-    tesoreria.Approve(r.request_id).execute(conn)
+    tesoreria.Approve(r.request_id, treasurer).execute(conn)
     with pytest.raises(InvalidInputError):
-        tesoreria.MarkPaid(r.request_id, payment_ref="  ")
+        tesoreria.MarkPaid(r.request_id, payment_ref="  ", by=treasurer)
 
 
-def test_unknown_request_is_not_found(conn):
+def test_unknown_request_is_not_found(conn, treasurer):
     with pytest.raises(NotFoundError):
-        tesoreria.Approve(999).execute(conn)
+        tesoreria.Approve(999, treasurer).execute(conn)
 
 
-def test_history_is_the_payment_record(conn, budget):
+def test_history_is_the_payment_record(conn, treasurer, budget):
     r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
-    tesoreria.Approve(r.request_id, actor="Tesorera").execute(conn)
-    tesoreria.MarkPaid(r.request_id, payment_ref="TRF-42", actor="Tesorera").execute(conn)
+    tesoreria.Approve(r.request_id, treasurer).execute(conn)
+    tesoreria.MarkPaid(r.request_id, payment_ref="TRF-42", by=treasurer).execute(conn)
     history = tesoreria.request_history(conn, r.request_id)
     assert [h["action"] for h in history] == ["submitted", "approved", "paid"]
     assert history[-1]["payment_ref"] == "TRF-42"
+
+
+def test_list_requests_newest_first_with_category(conn, ronda, budget):
+    first = tesoreria.submit_request(conn, budget, "Guias", "Cuerdas", 1000, policies.RejectOverBudget())
+    second = tesoreria.submit_request(conn, budget, "Alitas", "Pilas", 500, policies.RejectOverBudget())
+    rows = tesoreria.list_requests(conn, ronda)
+    assert [r["id"] for r in rows] == [second.request_id, first.request_id]
+    assert rows[0]["category"] == "Material" and rows[0]["status"] == "pending"
+
+
+# ----- Only the treasurer can approve, reject or pay -----
+
+def test_only_the_treasurer_can_approve_reject_or_pay(conn, ronda, budget, treasurer):
+    someone = kraal.add_volunteer(conn, "Ana")
+    r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
+    for command in (tesoreria.Approve(r.request_id, someone), tesoreria.Reject(r.request_id, someone)):
+        with pytest.raises(ForbiddenError):
+            command.execute(conn)
+    tesoreria.Approve(r.request_id, treasurer).execute(conn)
+    with pytest.raises(ForbiddenError):
+        tesoreria.MarkPaid(r.request_id, payment_ref="TRF-1", by=someone).execute(conn)
+    assert tesoreria.request_history(conn, r.request_id)[-1]["actor"] == "Marta"   # the person, not the role
+
+
+def test_treasurer_of_another_ronda_cannot_act(conn, budget):
+    other = kraal.create_ronda(conn, "2027", "2027-09-01")
+    t = kraal.add_volunteer(conn, "Next year's treasurer")
+    kraal.assign_role(conn, other, t, "Tesorera")
+    r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
+    with pytest.raises(ForbiddenError):
+        tesoreria.Approve(r.request_id, t).execute(conn)
+
+
+def test_treasury_info_follows_the_configured_role(conn, ronda, treasurer, monkeypatch):
+    monkeypatch.delenv("TREASURER_ROLE", raising=False)
+    assert tesoreria.treasury_info(conn, ronda) == {"role": "Tesorera", "volunteer_ids": [treasurer]}
+    monkeypatch.setenv("TREASURER_ROLE", "Tesorero")
+    assert tesoreria.treasury_info(conn, ronda) == {"role": "Tesorero", "volunteer_ids": []}

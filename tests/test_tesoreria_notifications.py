@@ -10,6 +10,14 @@ def budget(conn):
     return ronda, tesoreria.create_budget(conn, ronda, "Material", 10000)
 
 
+@pytest.fixture
+def treasurer(conn, budget):
+    """A volunteer who holds the treasurer role in the budget's ronda."""
+    t = kraal.add_volunteer(conn, "Tesorera")
+    kraal.assign_role(conn, budget[0], t, "Tesorera")
+    return t
+
+
 def test_pending_request_notifies_the_treasurer(conn, budget, notifier, monkeypatch):
     monkeypatch.delenv("TREASURER_ROLE", raising=False)
     ronda, bid = budget
@@ -39,18 +47,18 @@ def test_decision_by_policy_goes_straight_to_the_rama(conn, budget, notifier):
     assert notifier.sent[0]["title"] == "Your request for Pilas was approved"
 
 
-def test_commands_notify_the_requesting_rama(conn, budget, notifier):
+def test_commands_notify_the_requesting_rama(conn, budget, notifier, treasurer):
     ronda, bid = budget
     r = tesoreria.submit_request(conn, bid, "Guías", "Albergue", 3000, policies.RejectOverBudget())
-    tesoreria.Approve(r.request_id, actor="Tesorera").execute(conn, notifier)
-    tesoreria.MarkPaid(r.request_id, payment_ref="TRF-42").execute(conn, notifier)
+    tesoreria.Approve(r.request_id, treasurer).execute(conn, notifier)
+    tesoreria.MarkPaid(r.request_id, payment_ref="TRF-42", by=treasurer).execute(conn, notifier)
     assert [n["topic"] for n in notifier.sent] == [f"ronda.{ronda}.rama.guias"] * 2
     assert notifier.sent[1]["body"] == "Payment reference: TRF-42"
 
 
-def test_failed_command_sends_nothing(conn, budget, notifier):
+def test_failed_command_sends_nothing(conn, budget, notifier, treasurer):
     _, bid = budget
     r = tesoreria.submit_request(conn, bid, "Guías", "Albergue", 3000, policies.RejectOverBudget())
     with pytest.raises(Exception):
-        tesoreria.MarkPaid(r.request_id, payment_ref="TRF-1").execute(conn, notifier)
+        tesoreria.MarkPaid(r.request_id, payment_ref="TRF-1", by=treasurer).execute(conn, notifier)
     assert notifier.sent == []
