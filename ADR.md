@@ -1,14 +1,28 @@
 ## 1. Backend language and framework: Python with FastAPI
 Date: 2026-09-19
+
+
 Status: Decided
+
+
 Context: The assignment specifies that the app must run as one process on SQLite. In my case, the app is for an association of about 20 volunteers (the Kraal). I had to choose a language, Java (which I know better) or Python (which is what we have seen in class), and then a framework: Flask, FastAPI or Django.
+
+
 Decision: I chose Python, because SQLite is built into its standard library and there is no compile or build step, and FastAPI, because it validates request bodies from type hints with Pydantic, injects the database connection with Depends(get_db) and generates /docs automatically. There is also a lot of online documentation to learn from.
+
+
 Alternatives considered: Java (for example Spring Boot) was the most familiar syntax for me, but it needs more setup and boilerplate for a small app and a heavier build and deployment step, which did not fit a simple single-process project. Flask was very similar and lighter, but I would have written the validation and connection handling by hand. Django I had used in class, and it provides an ORM, migrations, an admin panel and a login system, but my app uses none of them: I wrote my own SQL in schema.sql, the tables are created on startup without a migration step, I built my own interface and I chose not to build login, so Django would only have added files and setup I did not use.
+
+
 Consequences: My route functions are very small because FastAPI checks the incoming data and, through Depends, opens the database connection for me, which means less repeated code and dependencies that are easy to swap in tests; the API documentation page is also built automatically from the code. The cost was learning Pydantic, Depends and uvicorn (the server that listens for requests), which I had never actively worked with before, and getting as confident explaining Python as I am with Java.
 
 ## 2. Domain boundary: Kraal & Rama Management vs. Meeting & Decision Log
 Date: 2026-09-19
+
+
 Status: Decided
+
+
 Context: The assignment asks to have 2 feature domains that will later become separate servicces, so I had to decide how to split my success criteria in 2 inside one SQLite schema. The 2 domains are: Kral and Rama management(it focuses on who is in the team) and then Meetings, Decision Logs and Actas(what is discussed and decided).
 
 
@@ -29,10 +43,21 @@ The cost is that the seam grew from one function to five, so Domain 2 depends mo
 
 ## 3. Data model: ronda_id as anchor, with a denormalised copy on rama_assignments
 Date: 2026-09-20
+
+
 Status: Decided
+
+
 Context: Everything the group does happens within a specific Guiding year, so both domains needed a common anchor. I also wanted the database itself to enforce that a volunteer is in at most one rama per ronda, because the continuity report gives a wrong answer if someone appears in two ramas in the same year.
+
+
 Decision: The contents of each table are different for the different years: roles, ramas, meetings and calendar events change every year, so every one of these tables has a ronda_id as a foreign key to rondas. A UNIQUE rule can only look at columns in its own table, so rama_assignments repeats ronda_id and has UNIQUE (ronda_id, volunteer_id), which makes SQLite enforce the one-rama rule. Dates are stored as ISO YYYY-MM-DD text.
+
+
 Alternatives considered: I could have made sure there is only one rama per person in the Python code instead of in the database schema, which would have avoided storing ronda_id twice. Still, I thought this was not as safe, since every function would have to remember to check this rule, and it could easily be forgotten. Another thing to think about was whether a date should be stored as a number (an epoch integer, the seconds since 1970). I chose ISO text (the international standard) because it is readable when I inspect the database, and it already sorts and compares correctly as text: the format goes from the biggest unit to the smallest and every part always has the same number of digits, so sorting the text alphabetically gives the dates in the right order. Impossible dates are rejected with date.fromisoformat before they are saved.
+
+
+
 Consequences: The database guarantees the rule, so _volunteer_rama_map can safely map each volunteer to exactly one rama. The cost is that ronda_id is stored twice and the two copies could disagree, so assign_to_rama never asks the caller for the year: it only takes the rama and the volunteer, looks up the rama and copies the year from it.
 Revised 2026-10-04: After the conversation with my professor (who thought my first design was too simple), the schema grew from 9 to 16 tables: budgets, budget_requests and request_events (treasury), votings and votes (named votes), bookings (albergues) and notices (live notices). I kept the same two principles (ronda_id as the anchor and rules enforced by the database, not only by Python) and made five new decisions:
 1. Only new tables, never altering the ones that already exist. For example, "a vote is open on this decision" is a separate votings table instead of new columns on decisions. Because every table uses CREATE TABLE IF NOT EXISTS, an existing database gets the new tables automatically when the app starts, with no migration step (§7.4).
@@ -67,8 +92,18 @@ What I deliberately left thinner: the live notice stream and the booking reminde
 
 ## 5. Deliberately not built: login and user accounts
 Date: 2026-10-04
+
+
 Status: Decided
+
+
 Context: This app would have about 20 users who all know each other and it runs as a single process on one machine. In our kraal there is full transparency over who does what: roles are shared and no individual person has more power than the rest; a role just means someone generally takes care of that task. Some features now depend on who is acting, for example the named votes and the rule that only the treasurer is allowed to approve or pay requests.
+
+
 Decision: I didn't build login or user accounts. Each person chooses who they are, and the server still makes sure the business rules are applied to that volunteer id: only the treasurer of the ronda can approve, reject or pay (403 otherwise), each person votes once, and only kraal members can vote. What we need is a system that keeps track of decisions and of who is responsible for each task, not one that stops people from acting.
+
+
 Alternatives considered: Real accounts with passwords would make identity trustworthy, but they need password storage, sessions, password resets and a login page, which is a lot of work and security risk for 20 people and not what this assignment is about. Logging in with Google accounts would avoid storing passwords, but it would make the app depend on an external service at runtime, which the deployment contract (§7.6) does not allow. A single shared password in an environment variable would keep strangers out, but it would not tell the volunteers apart, so it would not protect the votes or the treasurer rule. A personal access link for each volunteer (a random code in the link) is the cheapest real step, and it is what I would add first. In the future I will outsource this, but I personally believe that manually coding a login page is not essential.
+
+
 Consequences: Anyone who can open the page can act as anyone (approve as the treasurer, vote as another person or read another rama's notices), so the rules protect against mistakes, not against someone pretending to be someone else; but the nature of the people using the app (a group of friends who need to coordinate things) this really not that big of a deal. Before the app is deployed beyond a local network in Assignment 2, authentication has to be added first.
