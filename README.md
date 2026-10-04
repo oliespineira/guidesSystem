@@ -176,7 +176,8 @@ they missed when they reconnect.
 
 ```mermaid
 flowchart LR
-  Browser["Browser (web/index.html)"] -->|"HTTP / JSON"| Routes
+  Browser["Browser (web/index.html)"] -->|"HTTP / JSON"| KR
+  Browser -->|"HTTP / JSON"| Routes
   Browser -->|"Server-Sent Events"| Stream
 
   subgraph App["One process: app.py + uvicorn"]
@@ -190,14 +191,17 @@ flowchart LR
     end
     subgraph M["Shared: messaging (src/messaging)"]
       Stream["routes.py (/api/avisos)"] --> Broker["broker.py (in-process pub/sub)"]
-      Notifier["notifier.py"] --> Broker
+      Stream --> Notifier["notifier.py"]
+      Notifier --> Broker
     end
-    Seam -->|"the only import of Domain 1"| KS
+    Seam -->|"the only import of Domain 1 in Actas"| KS
+    Stream -->|"who listens: topics_for_volunteer"| KS
     AS -->|"notify(topic)"| Notifier
     KS --> DB[("SQLite: DATA_DIR/app.db")]
     AS --> DB
     Notifier --> DB
     Routes -. "DomainError" .-> EH["central error handler in app.py"]
+    KR -. "DomainError" .-> EH
   end
 ```
 
