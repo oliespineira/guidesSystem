@@ -1,6 +1,6 @@
 import re
 import unicodedata
-from src.errors import InvalidInputError
+from app.errors import InvalidInputError
 
 
 def slug(name: str) -> str:

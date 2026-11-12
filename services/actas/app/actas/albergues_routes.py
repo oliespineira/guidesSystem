@@ -2,11 +2,11 @@ import sqlite3
 
 from fastapi import APIRouter, Depends
 
-from src.actas import albergues
-from src.actas.schemas import BookingDone, BookingPlan
-from src.db import get_db
-from src.messaging.notifier import Notifier
-from src.messaging.routes import get_notifier
+from app.actas import albergues
+from app.actas.schemas import BookingDone, BookingPlan
+from app.db import get_db
+from app.messaging.notifier import Notifier
+from app.messaging.routes import get_notifier
 
 router = APIRouter(prefix="/api/actas", tags=["albergues"])
 

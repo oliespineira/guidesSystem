@@ -5,11 +5,11 @@ import sqlite3
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 
-from src.db import get_connection, get_db, require_row
-from src.kraal.service import topics_for_volunteer
-from src.messaging.notifier import Notifier, notices_since
-from src.messaging.schemas import NoticeCreate
-from src.messaging.topics import notice_topic
+from app.db import get_connection, get_db, require_row
+from app.kraal.service import topics_for_volunteer
+from app.messaging.notifier import Notifier, notices_since
+from app.messaging.schemas import NoticeCreate
+from app.messaging.topics import notice_topic
 
 router = APIRouter(prefix="/api/avisos", tags=["avisos"])
 

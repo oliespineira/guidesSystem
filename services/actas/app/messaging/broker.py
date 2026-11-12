@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass, field
 
-from src.messaging.topics import matches
+from app.messaging.topics import matches
 
 
 @dataclass(eq=False)          # eq=False: compare by identity, so a Subscription can go in a set

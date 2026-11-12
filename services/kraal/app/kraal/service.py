@@ -1,11 +1,9 @@
 import sqlite3
 
-from src.db import require_row
-from src.errors import ConflictError, InvalidInputError
+from app.db import require_row
+from app.errors import ConflictError, InvalidInputError
 from dataclasses import dataclass
-from src.validation import require_text
-from src.messaging.topics import all_topic, rama_topic, role_topic, slug
-
+from app.validation import require_text, slug
 
 class DuplicateRoleError(ConflictError):
     """The role is already held by someone this ronda."""
@@ -178,27 +176,6 @@ def _volunteer_rama_map(conn: sqlite3.Connection, ronda_id: int) -> dict[int, tu
     ).fetchall()
     return {row["volunteer_id"]: (row["volunteer_name"], row["rama_name"]) for row in rows}
 
-def topics_for_volunteer(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int) -> list[str]:
-    """Everyone is in the kraal, so everyone gets the general notices. On top of that:
-    their own rama's notices, and one topic for each role they hold this ronda."""
-    require_row(conn, "rondas", ronda_id)
-    require_row(conn, "volunteers", volunteer_id)
-
-    topics = [all_topic(ronda_id)]
-    rama = conn.execute(
-        """SELECT r.name FROM rama_assignments ra JOIN ramas r ON r.id = ra.rama_id
-           WHERE ra.ronda_id = ? AND ra.volunteer_id = ?""",
-        (ronda_id, volunteer_id),
-    ).fetchone()
-    if rama is not None:
-        topics.append(rama_topic(ronda_id, rama["name"]))
-
-    roles = conn.execute(
-        "SELECT role_name FROM roles WHERE ronda_id = ? AND volunteer_id = ? ORDER BY role_name",
-        (ronda_id, volunteer_id),
-    ).fetchall()
-    topics += [role_topic(ronda_id, r["role_name"]) for r in roles]
-    return topics
 
 
 def ronda_member_ids(conn: sqlite3.Connection, ronda_id: int) -> set[int]:

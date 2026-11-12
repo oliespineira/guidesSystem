@@ -1,8 +1,8 @@
 import sqlite3
 from abc import ABC, abstractmethod
 
-from src.messaging.topics import matches
-from src.validation import require_text
+from app.messaging.topics import matches
+from app.validation import require_text
 
 
 class Notifier(ABC):

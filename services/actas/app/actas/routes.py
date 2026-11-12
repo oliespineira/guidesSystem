@@ -2,15 +2,15 @@ import sqlite3
 from fastapi import APIRouter, Depends
 
 
-from src.actas import service
-from src.actas.schemas import(
+from app.actas import service
+from app.actas.schemas import(
     AgendaItemCreate,
     CalendarEventCreate,
     DecisionCreate,
     MeetingCreate,
 )#used to validate incoming requests.
 
-from src.db import get_db #the generator function opens a connection, yields it and closes it in a finally block once the request is done.
+from app.db import get_db #the generator function opens a connection, yields it and closes it in a finally block once the request is done.
 
 router = APIRouter(prefix="/api/actas", tags=["actas"])
 

@@ -1,6 +1,6 @@
-from src.db import require_row
-from src.errors import ConflictError, ForbiddenError
-from src.kraal.service import role_holder_ids, ronda_member_ids
+from app.db import require_row
+from app.errors import ConflictError, ForbiddenError
+from app.kraal.service import role_holder_ids, ronda_member_ids
 
 # THE SEAM: the only module in Domain 2 that asks about Domain 1's data.
 # If the domains were split into services, each function here becomes one HTTP call.

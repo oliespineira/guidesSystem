@@ -1,9 +1,9 @@
 import asyncio
 import os
 
-from src.actas.albergues import send_reminders
-from src.db import get_connection
-from src.messaging.notifier import Notifier
+from app.actas.albergues import send_reminders
+from app.db import get_connection
+from app.messaging.notifier import Notifier
 
 
 def _check_once(notifier: Notifier) -> int:

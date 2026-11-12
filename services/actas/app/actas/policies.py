@@ -2,7 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from src.errors import InvalidInputError
+from app.errors import InvalidInputError
 
 @dataclass(frozen = True)
 class Verdict:

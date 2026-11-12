@@ -2,11 +2,11 @@ import sqlite3
 
 from fastapi import APIRouter, Depends
 
-from src.actas import votes
-from src.actas.schemas import VoteCast, VoteOpen
-from src.db import get_db
-from src.messaging.notifier import Notifier
-from src.messaging.routes import get_notifier
+from app.actas import votes
+from app.actas.schemas import VoteCast, VoteOpen
+from app.db import get_db
+from app.messaging.notifier import Notifier
+from app.messaging.routes import get_notifier
 
 router = APIRouter(prefix="/api/actas/decisions", tags=["votaciones"])
 

@@ -3,11 +3,11 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime
 
-from src.actas.seam import electorate, require_voter
-from src.db import require_row
-from src.errors import ConflictError, InvalidInputError
-from src.messaging.notifier import Notifier
-from src.messaging.topics import all_topic
+from app.actas.seam import electorate, require_voter
+from app.db import require_row
+from app.errors import ConflictError, InvalidInputError
+from app.messaging.notifier import Notifier
+from app.messaging.topics import all_topic
 
 CHOICES = ("yes", "no", "abstain")
 

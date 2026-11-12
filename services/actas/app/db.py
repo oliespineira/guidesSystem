@@ -2,7 +2,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-from src.errors import NotFoundError
+from app.errors import NotFoundError
 
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 

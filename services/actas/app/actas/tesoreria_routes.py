@@ -1,12 +1,12 @@
 import sqlite3
 from fastapi import APIRouter, Depends
 
-from src.actas import tesoreria
-from src.actas.policies import ApprovalPolicy, get_policy
-from src.actas.schemas import BudgetCreate, RequestAction, RequestCreate, RequestPayment
-from src.db import get_db
-from src.messaging.notifier import Notifier
-from src.messaging.routes import get_notifier
+from app.actas import tesoreria
+from app.actas.policies import ApprovalPolicy, get_policy
+from app.actas.schemas import BudgetCreate, RequestAction, RequestCreate, RequestPayment
+from app.db import get_db
+from app.messaging.notifier import Notifier
+from app.messaging.routes import get_notifier
 
 router = APIRouter(prefix="/api/actas", tags=["tesoreria"])
 

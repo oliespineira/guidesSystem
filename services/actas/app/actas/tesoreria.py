@@ -2,14 +2,14 @@ import sqlite3
 import os
 from dataclasses import dataclass
 
-from src.actas.policies import ApprovalPolicy, Verdict
-from src.actas.seam import require_ronda, require_role, role_holders
-from src.db import require_row
-from src.errors import ConflictError, InvalidInputError
-from src.validation import require_text
+from app.actas.policies import ApprovalPolicy, Verdict
+from app.actas.seam import require_ronda, require_role, role_holders
+from app.db import require_row
+from app.errors import ConflictError, InvalidInputError
+from app.validation import require_text
 
-from src.messaging.notifier import Notifier
-from src.messaging.topics import rama_topic, role_topic
+from app.messaging.notifier import Notifier
+from app.messaging.topics import rama_topic, role_topic
 
 
 def _normalize(item: str) -> str:

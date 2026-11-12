@@ -3,11 +3,11 @@
 import sqlite3 #pythion's built in database library
 from datetime import date#used to check that date string is really a date and to compare start and end dates.
 
-from src.db import require_row #fetches a row by id or raises "not found"
-from src.errors import InvalidInputError #error typr for pad input (HTTP 400N)
-from src.validation import require_text
+from app.db import require_row #fetches a row by id or raises "not found"
+from app.errors import InvalidInputError #error typr for pad input (HTTP 400N)
+from app.validation import require_text
 
-from src.actas.seam import require_ronda
+from app.actas.seam import require_ronda
 
 class InvalidDateRangeError(InvalidInputError):
     """A calendar event ends before it starts."""

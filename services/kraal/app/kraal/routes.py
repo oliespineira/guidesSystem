@@ -1,9 +1,9 @@
 import sqlite3
 from fastapi import APIRouter, Depends
 
-from src.db import get_db
-from src.kraal import service
-from src.kraal.schemas import RamaCreate, RamaMember, RoleAssign, RondaCreate, VolunteerCreate
+from app.db import get_db
+from app.kraal import service
+from app.kraal.schemas import RamaCreate, RamaMember, RoleAssign, RondaCreate, VolunteerCreate
 
 router = APIRouter(prefix="/api/kraal", tags=["kraal"])
 

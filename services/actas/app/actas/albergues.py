@@ -2,12 +2,12 @@ import os
 import sqlite3
 from datetime import date, timedelta
 
-from src.actas.seam import require_ronda
-from src.db import require_row
-from src.errors import ConflictError, InvalidInputError
-from src.messaging.notifier import Notifier
-from src.messaging.topics import all_topic
-from src.validation import require_text
+from app.actas.seam import require_ronda
+from app.db import require_row
+from app.errors import ConflictError, InvalidInputError
+from app.messaging.notifier import Notifier
+from app.messaging.topics import all_topic
+from app.validation import require_text
 
 
 def _lead_days() -> int:
