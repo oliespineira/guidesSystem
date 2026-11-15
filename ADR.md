@@ -107,3 +107,42 @@ Alternatives considered: Real accounts with passwords would make identity trustw
 
 
 Consequences: Anyone who can open the page can act as anyone (approve as the treasurer, vote as another person or read another rama's notices), so the rules protect against mistakes, not against someone pretending to be someone else; but the nature of the people using the app (a group of friends who need to coordinate things) this really not that big of a deal. Before the app is deployed beyond a local network in Assignment 2, authentication has to be added first.
+
+
+# Assignment 2
+
+## ADR-6: Split into two services
+
+**Date:** 2026-11-12
+**Status:** Accepted
+
+### Context
+Assignment 2 requires that I containerise the application in 2 containers: 2 services, each inside its own container with its own database, that communicate over HTTP.
+
+In the first assignment, seam.py was the only file in Actas that imported Kraal, and ADR-2 predicted that if the app was split, only that file would change into HTTP calls. Messaging was not as well defined: it was a shared package (src/messaging) that belonged to neither domain. Two containers cannot share a package, and a third container is not allowed, so it had to go into one of the two services.
+
+When I split the code, I also found that Kraal itself used the messaging package: topics_for_volunteer built the notice topics, and role_holder_ids used slug to compare role names. I had not noticed this in the first assignment because everything ran in one process.
+
+### Decision
+I created 2 services, kraal and actas, split along seam.py.
+
+Messaging goes in actas because that is where messages are sent from: the treasury, the votes and the hostel reminders all publish notices, and they are all in Actas. This way sending a notice is still a normal function call inside the same service. If messaging was in kraal, every notice would become an HTTP call across the seam.
+
+To make kraal stop depending on messaging, I copied slug into kraal and removed topics_for_volunteer. Actas will build the topics itself, using the volunteer's rama and roles that it asks kraal for over HTTP.
+
+db.py, errors.py and validation.py are copied into each service, because each container only contains its own folder and cannot import code from the other one.
+
+Only actas calls kraal. Kraal never calls actas.
+
+### Alternatives considered
+- Messaging in kraal: every notice published by Actas would have to cross the seam over HTTP, so the calls would go in both directions and notices would fail whenever kraal is down.
+- Messaging as a third service: the assignment allows exactly 2 service containers.
+- A shared Python package used by both services: each image is built only from its own service folder, so it cannot reach a package outside it. It would also tie the two services together, since a change to the package would affect both.
+- Moving the seam somewhere else: seam.py already worked as the boundary, and the only problem was messaging, so moving messaging was enough.
+
+### Consequences
+This has allowed me to deploy the two services independently and to establish a one-way dependency, meaning that kraal works even if actas is down.
+
+The costs are that the copied code (slug, errors, db helpers) can drift apart if I change it in one service and forget the other, and that what used to be function calls through seam.py are now network calls, which can be slow or fail. That is why every call to kraal needs a timeout and a clear error when kraal is unavailable.
+
+ADR-2 almost held: seam.py was still the only file in Actas that needed Kraal, but Kraal depended on the shared messaging package, which I only discovered when splitting.
