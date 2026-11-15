@@ -21,3 +21,7 @@ class ConflictError(DomainError):
 class ForbiddenError(DomainError):
     """The person exists, but this action belongs to someone with a specific role."""
     status_code = 403
+
+#Assignment 2: new error for the new endpoint
+class ServiceUnavailableError(DomainError):# I am working but something I depend on isn't
+    status_code = 503

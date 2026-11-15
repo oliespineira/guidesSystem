@@ -168,8 +168,8 @@ class RequestCommand:
     def execute(self, conn: sqlite3.Connection, notifier: Notifier | None = None) -> None:
         req = require_row(conn, "budget_requests", self.request_id)
         # Business rule: only the treasurer of the request's ronda may approve, reject or pay.
-        require_role(conn, _ronda_of_budget(conn, req["budget_id"]), self.by, _treasurer_role())
-        actor = require_row(conn, "volunteers", self.by)["name"]
+        member = require_role(conn, _ronda_of_budget(conn, req["budget_id"]), self.by, _treasurer_role())
+        actor = member["name"]
         if self.target_status not in ALLOWED.get(req["status"], set()):
             raise ConflictError(f"Cannot move a {req['status']} request to {self.target_status}")
         self._check(conn, req)

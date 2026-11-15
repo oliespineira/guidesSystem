@@ -5,29 +5,32 @@ import sqlite3
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 
-from app.db import get_connection, get_db, require_row
-from app.kraal.service import topics_for_volunteer
+from app.actas.seam import membership, require_ronda
+from app.db import get_connection, get_db
+from app.errors import ServiceUnavailableError
 from app.messaging.notifier import Notifier, notices_since
 from app.messaging.schemas import NoticeCreate
-from app.messaging.topics import notice_topic
+from app.messaging.topics import all_topic, notice_topic, topics_for_member
 
 router = APIRouter(prefix="/api/avisos", tags=["avisos"])
 
-def get_notifier( request: Request)-> Notifier:
-    """FastAPI dependency: the one Notifier created at startup (see lifespan in app.py)."""
+
+def get_notifier(request: Request) -> Notifier:
+    """FastAPI dependency: the one Notifier created at startup (see lifespan in main.py)."""
     return request.app.state.notifier
+
 
 @router.post("", status_code=201)
 def post_notice(body: NoticeCreate, conn: sqlite3.Connection = Depends(get_db),
                 notifier: Notifier = Depends(get_notifier)):
-    require_row(conn, "rondas", body.ronda_id)
+    require_ronda(conn, body.ronda_id)
     topic = notice_topic(body.ronda_id, body.audience, body.target)
     return {"id": notifier.notify(conn, topic, body.title, body.body), "topic": topic}
 
 
 @router.get("/topics")
 def my_topics(ronda_id: int, volunteer_id: int, conn: sqlite3.Connection = Depends(get_db)):
-    return topics_for_volunteer(conn, ronda_id, volunteer_id)
+    return topics_for_member(ronda_id, membership(conn, ronda_id, volunteer_id))
 
 
 def _sse(notice: dict) -> str:
@@ -43,7 +46,13 @@ async def stream(request: Request, ronda_id: int, volunteer_id: int,
     # minutes, and get_db would keep its connection open for the stream's whole life.
     conn = get_connection()
     try:
-        patterns = topics_for_volunteer(conn, ronda_id, volunteer_id)
+        try:
+            # membership() makes a blocking HTTP call, so run it in a thread:
+            # otherwise it would freeze the event loop and every other open stream.
+            member = await asyncio.to_thread(membership, conn, ronda_id, volunteer_id)
+            patterns = topics_for_member(ronda_id, member)
+        except ServiceUnavailableError:
+            patterns = [all_topic(ronda_id)]   # degraded: Kraal is down, so only whole-kraal notices
         sub = broker.subscribe(patterns)                              # 1. subscribe FIRST...
         backlog = notices_since(conn, patterns, last_event_id or 0)   # 2. ...then read what was missed
     finally:

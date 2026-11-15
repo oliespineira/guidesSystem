@@ -47,3 +47,12 @@ def matches(pattern: str, topic: str) -> bool:
         if i >= len(t) or (seg != "*" and seg != t[i]):
             return False
     return len(p) == len(t)
+
+
+def topics_for_member(ronda_id: int, member: dict) -> list[str]:
+    """Topics one volunteer listens to: the whole kraal, their rama (if any) and each of their roles."""
+    topics = [all_topic(ronda_id)]
+    if member["rama"]:
+        topics.append(rama_topic(ronda_id, member["rama"]))
+    topics += [role_topic(ronda_id, role) for role in member["roles"]]
+    return topics
