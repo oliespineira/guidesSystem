@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 
 from app.db import get_db
 from app.kraal import service
-from app.kraal.schemas import RamaCreate, RamaMember, RoleAssign, RondaCreate, VolunteerCreate
+from app.kraal.schemas import RamaCreate, RamaMember, RoleAssign, RondaCreate, VolunteerCreate, RondaOut, Membership
 
 router = APIRouter(prefix="/api/kraal", tags=["kraal"])
 
@@ -60,3 +60,22 @@ def roster(ronda_id: int, conn: sqlite3.Connection = Depends(get_db)):
 @router.get("/continuity")
 def continuity(prev: int, new: int, conn: sqlite3.Connection = Depends(get_db)):
     return service.continuity_report(conn, prev, new)
+
+#NEW FOR ASSIGNMENT 2:
+@router.get("/rondas/{ronda_id}", response_model=RondaOut, responses={404: {"description": "Ronda not found"}})
+def get_ronda(ronda_id: int, conn: sqlite3.Connection = Depends(get_db)):
+    return service.get_ronda(conn, ronda_id)
+
+
+@router.get("/rondas/{ronda_id}/members", response_model=list[int])
+def ronda_members(ronda_id: int, conn: sqlite3.Connection = Depends(get_db)):
+    return sorted(service.ronda_member_ids(conn, ronda_id))
+
+
+@router.get(
+    "/rondas/{ronda_id}/volunteers/{volunteer_id}/membership",
+    response_model=Membership,
+    responses={404: {"description": "Ronda or volunteer not found"}},
+)
+def membership(ronda_id: int, volunteer_id: int, conn: sqlite3.Connection = Depends(get_db)):
+    return service.volunteer_membership(conn, ronda_id, volunteer_id)

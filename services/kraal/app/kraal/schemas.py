@@ -20,3 +20,17 @@ class RamaMember(BaseModel):
     volunteer_id: int
     availability_pct: int | None = None    # range checked in the service, not here
     notes: str | None = None
+
+# these are added for assignment 2, to be used in the new endpoints. This is the contract between the two services
+class RondaOut(BaseModel):
+    id: int
+    year_label: str
+    start_date: str
+    status: str
+
+
+class Membership(BaseModel):
+    volunteer_id: int
+    name: str
+    rama: str | None
+    roles: list[str]

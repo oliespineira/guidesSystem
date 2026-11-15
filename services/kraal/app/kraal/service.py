@@ -194,3 +194,28 @@ def role_holder_ids(conn: sqlite3.Connection, ronda_id: int, role_name: str) -> 
     require_row(conn, "rondas", ronda_id)
     rows = conn.execute("SELECT volunteer_id, role_name FROM roles WHERE ronda_id = ?", (ronda_id,)).fetchall()
     return {r["volunteer_id"] for r in rows if slug(r["role_name"]) == slug(role_name)}
+
+
+#NEW FUNCTIONS FOR ASSIGNMENT 2:
+def get_ronda(conn: sqlite3.Connection, ronda_id: int) -> dict:
+    return dict(require_row(conn, "rondas", ronda_id))
+
+
+def volunteer_membership(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int) -> dict:
+    require_row(conn, "rondas", ronda_id)
+    volunteer = require_row(conn, "volunteers", volunteer_id)
+    rama = conn.execute(
+        "SELECT r.name FROM rama_assignments ra JOIN ramas r ON r.id = ra.rama_id "
+        "WHERE ra.ronda_id = ? AND ra.volunteer_id = ?",
+        (ronda_id, volunteer_id),
+    ).fetchone()
+    roles = conn.execute(
+        "SELECT role_name FROM roles WHERE ronda_id = ? AND volunteer_id = ? ORDER BY role_name",
+        (ronda_id, volunteer_id),
+    ).fetchall()
+    return {
+        "volunteer_id": volunteer_id,
+        "name": volunteer["name"],
+        "rama": rama["name"] if rama else None,
+        "roles": [r["role_name"] for r in roles],
+    }
