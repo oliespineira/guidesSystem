@@ -2,7 +2,7 @@ import os
 import sqlite3
 from datetime import date, timedelta
 
-from app.actas.seam import require_ronda
+from app.actas.seam import check_ronda_if_available
 from app.db import require_row
 from app.errors import ConflictError, InvalidInputError
 from app.messaging.notifier import Notifier
@@ -66,7 +66,7 @@ def mark_booked(conn: sqlite3.Connection, event_id: int, venue: str, request_id:
 
 
 def list_bookings(conn: sqlite3.Connection, ronda_id: int, today: date | None = None) -> list[dict]:
-    require_ronda(conn, ronda_id)
+    check_ronda_if_available(conn, ronda_id)
     today = today or date.today()
     rows = conn.execute(
         """SELECT b.*, e.start_date, e.activity_type FROM bookings b

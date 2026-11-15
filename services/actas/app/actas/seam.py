@@ -59,3 +59,10 @@ def require_role(conn, ronda_id: int, volunteer_id: int, role_name: str) -> dict
     if slug(role_name) not in {slug(r) for r in member["roles"]}:
         raise ForbiddenError(f"Only the {role_name} of this ronda can do this")
     return member
+
+def check_ronda_if_available(conn, ronda_id: int) -> None:
+    """For reads: check the ronda when Kraal answers, but still serve our own data when it is down."""
+    try:
+        require_ronda(conn, ronda_id)
+    except ServiceUnavailableError:
+        pass

@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass
 
 from app.actas.policies import ApprovalPolicy, Verdict
-from app.actas.seam import require_ronda, require_role, role_holders
+from app.actas.seam import check_ronda_if_available, require_ronda, require_role, role_holders
 from app.db import require_row
 from app.errors import ConflictError, InvalidInputError
 from app.validation import require_text
@@ -70,7 +70,7 @@ def remaining_cents(conn: sqlite3.Connection, budget_id: int) -> int:
 
 
 def list_budgets(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
-    require_ronda(conn, ronda_id)
+    check_ronda_if_available(conn, ronda_id)
     rows = conn.execute(
         """SELECT b.id, b.category, b.allocated_cents,
                   b.allocated_cents - COALESCE(SUM(CASE WHEN r.status IN ('approved', 'paid')
@@ -84,7 +84,7 @@ def list_budgets(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
 
 
 def list_requests(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
-    require_ronda(conn, ronda_id)
+    check_ronda_if_available(conn, ronda_id)
     rows = conn.execute(
         """SELECT br.id, br.budget_id, b.category, br.rama, br.item, br.amount_cents, br.status
            FROM budget_requests br JOIN budgets b ON b.id = br.budget_id

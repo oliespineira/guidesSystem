@@ -7,7 +7,7 @@ from app.db import require_row #fetches a row by id or raises "not found"
 from app.errors import InvalidInputError #error typr for pad input (HTTP 400N)
 from app.validation import require_text
 
-from app.actas.seam import require_ronda
+from app.actas.seam import check_ronda_if_available, require_ronda
 
 class InvalidDateRangeError(InvalidInputError):
     """A calendar event ends before it starts."""
@@ -33,7 +33,7 @@ def create_meeting(conn, ronda_id: int, meeting_date: str, title: str) -> int:
 
 
 def list_meetings(conn, ronda_id: int) -> list[dict]:
-    require_ronda(conn, ronda_id)
+    check_ronda_if_available(conn, ronda_id)
     rows = conn.execute(
         "SELECT id, date, title FROM meetings WHERE ronda_id = ? ORDER BY date DESC, id DESC",
         (ronda_id,),
@@ -87,7 +87,7 @@ def add_calendar_event(conn, ronda_id: int, start_date: str, activity_type: str,
 
 
 def list_calendar(conn, ronda_id: int) -> list[dict]:
-    require_ronda(conn, ronda_id)
+    check_ronda_if_available(conn, ronda_id)
     rows = conn.execute(
         "SELECT * FROM calendar_events WHERE ronda_id = ? ORDER BY start_date", (ronda_id,)
     ).fetchall()
