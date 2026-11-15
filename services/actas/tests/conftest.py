@@ -62,7 +62,7 @@ class FakeKraal:
             with_role = {v for (r, v, _) in self.roles if r == ronda_id}
             return sorted(in_rama | with_role)
         if tail == "/roles":
-            return [{"ronda_id": r, "volunteer_id": v, "role_name": name}
+            return [{"role_name": name, "volunteer_id": v, "volunteer_name": self.volunteers[v]}
                     for (r, v, name) in self.roles if r == ronda_id]
         volunteer_id = int(match.group(3))
         if ronda_id not in self.rondas:
