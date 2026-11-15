@@ -1,17 +1,16 @@
 import pytest
 
-from src.actas import policies, tesoreria
-from src.kraal import service as kraal
+from app.actas import policies, tesoreria
 
 
 @pytest.fixture
-def budget(conn):
+def budget(conn, kraal):
     ronda = kraal.create_ronda(conn, "2026", "2026-09-01")
     return ronda, tesoreria.create_budget(conn, ronda, "Material", 10000)
 
 
 @pytest.fixture
-def treasurer(conn, budget):
+def treasurer(conn, budget, kraal):
     """A volunteer who holds the treasurer role in the budget's ronda."""
     t = kraal.add_volunteer(conn, "Tesorera")
     kraal.assign_role(conn, budget[0], t, "Tesorera")

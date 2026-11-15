@@ -1,7 +1,7 @@
 import pytest
 
-from src.errors import InvalidInputError
-from src.messaging.notifier import BrokerNotifier, notices_since, save_notice
+from app.errors import InvalidInputError
+from app.messaging.notifier import BrokerNotifier, notices_since, save_notice
 
 
 class FakeBroker:

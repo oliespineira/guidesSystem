@@ -1,6 +1,6 @@
 import asyncio
 
-from src.messaging.broker import Broker
+from app.messaging.broker import Broker
 
 GUIAS = {"id": 1, "topic": "ronda.1.rama.guias", "title": "Salida el sábado"}
 

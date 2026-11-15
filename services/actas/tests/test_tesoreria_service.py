@@ -1,17 +1,17 @@
 import pytest
 
-from src.actas import policies, tesoreria
-from src.errors import ConflictError, ForbiddenError, InvalidInputError, NotFoundError
-from src.kraal import service as kraal
+from app.actas import policies, tesoreria
+from app.errors import ConflictError, ForbiddenError, InvalidInputError, NotFoundError
+
 
 
 @pytest.fixture
-def ronda(conn):
+def ronda(conn, kraal):
     return kraal.create_ronda(conn, "2026", "2026-09-01")
 
 
 @pytest.fixture
-def treasurer(conn, ronda):
+def treasurer(conn, ronda, kraal):
     """A volunteer who holds the treasurer role this ronda: the only one allowed to approve or pay.
     Her name differs from the role name, so tests can tell the person from the role."""
     t = kraal.add_volunteer(conn, "Marta")
@@ -157,7 +157,7 @@ def test_list_requests_newest_first_with_category(conn, ronda, budget):
 
 # ----- Only the treasurer can approve, reject or pay -----
 
-def test_only_the_treasurer_can_approve_reject_or_pay(conn, ronda, budget, treasurer):
+def test_only_the_treasurer_can_approve_reject_or_pay(conn, ronda, budget, treasurer, kraal):
     someone = kraal.add_volunteer(conn, "Ana")
     r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
     for command in (tesoreria.Approve(r.request_id, someone), tesoreria.Reject(r.request_id, someone)):
@@ -169,7 +169,7 @@ def test_only_the_treasurer_can_approve_reject_or_pay(conn, ronda, budget, treas
     assert tesoreria.request_history(conn, r.request_id)[-1]["actor"] == "Marta"   # the person, not the role
 
 
-def test_treasurer_of_another_ronda_cannot_act(conn, budget):
+def test_treasurer_of_another_ronda_cannot_act(conn, budget, kraal):
     other = kraal.create_ronda(conn, "2027", "2027-09-01")
     t = kraal.add_volunteer(conn, "Next year's treasurer")
     kraal.assign_role(conn, other, t, "Tesorera")

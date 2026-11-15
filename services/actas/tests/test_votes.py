@@ -2,16 +2,16 @@ from datetime import datetime
 
 import pytest
 
-from src.actas import service as actas, votes
-from src.errors import ConflictError, InvalidInputError, NotFoundError
-from src.kraal import service as kraal
+from app.actas import service as actas, votes
+from app.errors import ConflictError, InvalidInputError, NotFoundError
+
 
 BEFORE = datetime(2026, 10, 5, 19, 0)    # while the vote is open
 AFTER = datetime(2026, 10, 5, 21, 0)     # after it closes at 20:00
 
 
 @pytest.fixture
-def setup(conn):
+def setup(conn, kraal):
     """A ronda with 4 kraal members (3 in ramas, 1 with only a role), an outsider, and one decision."""
     r = kraal.create_ronda(conn, "2026", "2026-09-01")
     guias = kraal.create_rama(conn, r, "Guías")

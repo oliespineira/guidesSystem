@@ -1,7 +1,8 @@
 import pytest
 
-from src.messaging import topics
-from src.errors import InvalidInputError
+from app.messaging import topics
+from app.errors import InvalidInputError
+from app.messaging.topics import topics_for_member
 
 
 @pytest.mark.parametrize("pattern, topic, expected", [

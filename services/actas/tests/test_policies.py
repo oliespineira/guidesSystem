@@ -1,7 +1,7 @@
 import pytest
 
-from src.actas import policies
-from src.errors import InvalidInputError
+from app.actas import policies
+from app.errors import InvalidInputError
 
 
 @pytest.mark.parametrize("amount, expected", [(9999, "pending"), (10000, "pending"), (10001, "rejected")])

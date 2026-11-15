@@ -2,13 +2,13 @@ from datetime import date
 
 import pytest
 
-from src.actas import albergues, policies, service as actas, tesoreria
-from src.errors import ConflictError, InvalidInputError, NotFoundError
-from src.kraal import service as kraal
+from app.actas import albergues, policies, service as actas, tesoreria
+from app.errors import ConflictError, InvalidInputError, NotFoundError
+
 
 
 @pytest.fixture
-def outing(conn):
+def outing(conn, kraal):
     ronda = kraal.create_ronda(conn, "2026", "2026-09-01")
     event = actas.add_calendar_event(conn, ronda, "2027-03-20", "Spring camp", end_date="2027-03-22")
     return ronda, event
