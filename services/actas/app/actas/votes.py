@@ -1,4 +1,4 @@
-import sqlite3
+from app.db import Connection, IntegrityError, Row
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -65,7 +65,7 @@ def _ronda_of_decision(conn, decision_id: int) -> int:
     return row["ronda_id"]
 
 
-def open_vote(conn: sqlite3.Connection, decision_id: int, closes_at: str, rule: str = "majority_of_cast",
+def open_vote(conn: Connection, decision_id: int, closes_at: str, rule: str = "majority_of_cast",
               notifier: Notifier | None = None, now: datetime | None = None) -> None:
     decision = require_row(conn, "decisions", decision_id)
     rule_from_name(rule)                                   # reject unknown rules before saving
@@ -73,9 +73,9 @@ def open_vote(conn: sqlite3.Connection, decision_id: int, closes_at: str, rule: 
     if closes <= (now or datetime.now()):
         raise InvalidInputError("closes_at must be in the future")
     try:
-        conn.execute("INSERT INTO votings (decision_id, closes_at, rule) VALUES (?, ?, ?)",
+        conn.execute("INSERT INTO votings (decision_id, closes_at, [rule]) VALUES (?, ?, ?)",
                      (decision_id, closes.isoformat(timespec="minutes"), rule))
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         raise ConflictError("A vote is already open for this decision") from None
     conn.commit()
     if notifier is not None:
@@ -84,7 +84,7 @@ def open_vote(conn: sqlite3.Connection, decision_id: int, closes_at: str, rule: 
                         f"Vote before {closes.isoformat(sep=' ', timespec='minutes')}, even if you can't attend.")
 
 
-def cast_vote(conn: sqlite3.Connection, decision_id: int, volunteer_id: int, choice: str,
+def cast_vote(conn: Connection, decision_id: int, volunteer_id: int, choice: str,
               now: datetime | None = None) -> int:
     voting = _require_voting(conn, decision_id)
     if voting["closed"] or (now or datetime.now()) >= datetime.fromisoformat(voting["closes_at"]):
@@ -95,13 +95,13 @@ def cast_vote(conn: sqlite3.Connection, decision_id: int, volunteer_id: int, cho
     try:
         cur = conn.execute("INSERT INTO votes (decision_id, volunteer_id, choice) VALUES (?, ?, ?)",
                            (decision_id, volunteer_id, choice))
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         raise ConflictError("This volunteer has already voted on this decision") from None
     conn.commit()
     return cur.lastrowid
 
 
-def _require_voting(conn, decision_id: int) -> sqlite3.Row:
+def _require_voting(conn, decision_id: int) -> Row:
     row = conn.execute("SELECT * FROM votings WHERE decision_id = ?", (decision_id,)).fetchone()
     if row is None:
         require_row(conn, "decisions", decision_id)        # 404 if the decision itself doesn't exist
@@ -109,7 +109,7 @@ def _require_voting(conn, decision_id: int) -> sqlite3.Row:
     return row
 
 
-def tally(conn: sqlite3.Connection, decision_id: int) -> dict:
+def tally(conn: Connection, decision_id: int) -> dict:
     voting = _require_voting(conn, decision_id)
     rows = conn.execute("SELECT volunteer_id, choice FROM votes WHERE decision_id = ? ORDER BY id",
                         (decision_id,)).fetchall()
@@ -122,7 +122,7 @@ def tally(conn: sqlite3.Connection, decision_id: int) -> dict:
             "voters": [{"volunteer_id": r["volunteer_id"], "choice": r["choice"]} for r in rows]}
 
 
-def close_vote(conn: sqlite3.Connection, decision_id: int, notifier: Notifier | None = None,
+def close_vote(conn: Connection, decision_id: int, notifier: Notifier | None = None,
                now: datetime | None = None) -> str:
     voting = _require_voting(conn, decision_id)
     if voting["closed"]:

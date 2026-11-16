@@ -1,4 +1,4 @@
-import sqlite3
+from app.db import Connection, IntegrityError
 import os
 from dataclasses import dataclass
 
@@ -44,7 +44,7 @@ def treasury_info(conn, ronda_id: int) -> dict:
     """Who may approve, reject and pay requests in this ronda."""
     require_ronda(conn, ronda_id)
     return {"role": _treasurer_role(), "volunteer_ids": sorted(role_holders(conn, ronda_id, _treasurer_role()))}
-def create_budget(conn: sqlite3.Connection, ronda_id: int, category: str, allocated_cents: int) -> int:
+def create_budget(conn: Connection, ronda_id: int, category: str, allocated_cents: int) -> int:
     require_ronda(conn, ronda_id)
     category = require_text(category, "Category")
     if allocated_cents < 0:
@@ -54,12 +54,12 @@ def create_budget(conn: sqlite3.Connection, ronda_id: int, category: str, alloca
             "INSERT INTO budgets (ronda_id, category, allocated_cents) VALUES (?, ?, ?)",
             (ronda_id, category, allocated_cents),
         )
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         raise ConflictError(f"Budget '{category}' already exists for this ronda") from None
     conn.commit()
     return cur.lastrowid
 
-def remaining_cents(conn: sqlite3.Connection, budget_id: int) -> int:
+def remaining_cents(conn: Connection, budget_id: int) -> int:
     budget = require_row(conn, "budgets", budget_id)
     spent = conn.execute(
         """SELECT COALESCE(SUM(amount_cents), 0) AS spent FROM budget_requests
@@ -69,7 +69,7 @@ def remaining_cents(conn: sqlite3.Connection, budget_id: int) -> int:
     return budget["allocated_cents"] - spent
 
 
-def list_budgets(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
+def list_budgets(conn: Connection, ronda_id: int) -> list[dict]:
     check_ronda_if_available(conn, ronda_id)
     rows = conn.execute(
         """SELECT b.id, b.category, b.allocated_cents,
@@ -77,13 +77,13 @@ def list_budgets(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
                                                         THEN r.amount_cents END), 0) AS remaining_cents
            FROM budgets b LEFT JOIN budget_requests r ON r.budget_id = b.id
            WHERE b.ronda_id = ?
-           GROUP BY b.id ORDER BY b.category""",
+           GROUP BY b.id, b.category, b.allocated_cents ORDER BY b.category""",
         (ronda_id,),
     ).fetchall()
     return [dict(r) for r in rows]
 
 
-def list_requests(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
+def list_requests(conn: Connection, ronda_id: int) -> list[dict]:
     check_ronda_if_available(conn, ronda_id)
     rows = conn.execute(
         """SELECT br.id, br.budget_id, b.category, br.rama, br.item, br.amount_cents, br.status
@@ -165,7 +165,7 @@ class RequestCommand:
         self.by = by                    # volunteer_id of whoever is acting: must hold the treasurer role
         self.note = note
 
-    def execute(self, conn: sqlite3.Connection, notifier: Notifier | None = None) -> None:
+    def execute(self, conn: Connection, notifier: Notifier | None = None) -> None:
         req = require_row(conn, "budget_requests", self.request_id)
         # Business rule: only the treasurer of the request's ronda may approve, reject or pay.
         member = require_role(conn, _ronda_of_budget(conn, req["budget_id"]), self.by, _treasurer_role())

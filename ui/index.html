@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es">
 <head>
+<script src="config.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Guías Torrelodones · Kraal</title>
@@ -341,9 +342,21 @@ function h(tag, props, ...kids) {
 }
 const $ = sel => document.querySelector(sel);
 
+// /api/kraal/... goes to the kraal service, everything else to actas.
+function apiBase(path) {
+  return path.startsWith("/api/kraal") ? window.CONFIG.KRAAL_URL : window.CONFIG.ACTAS_URL;
+}
+
 async function api(path, body) {
   const opts = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
-  const res = await fetch(path, opts);
+  let res;
+  try {
+    res = await fetch(apiBase(path) + path, opts);
+  } catch {
+    // No response at all: the service is stopped or unreachable (the browser only says "Failed to fetch").
+    const service = path.startsWith("/api/kraal") ? "Kraal" : "Actas";
+    throw new Error(`El servicio ${service} no está disponible; inténtalo de nuevo`);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const d = data.detail;
@@ -413,13 +426,38 @@ const state = {
 };
 const meName = () => (state.volunteers.find(v => String(v.id) === String(state.me)) || {}).name;
 
+// Shows or hides a banner at the top of the page when Kraal does not answer.
+function setKraalBanner(down) {
+  let b = document.getElementById("kraal-banner");
+  if (!b) {
+    b = document.createElement("div");
+    b.id = "kraal-banner";
+    b.style.cssText = "position:sticky;top:0;z-index:50;padding:10px 16px;background:#1c1c1e;color:#fff;text-align:center";
+    b.textContent = "El servicio Kraal no está disponible. Reuniones, Tesorería, Salidas y Avisos siguen funcionando; " +
+                    "lo que depende del kraal volverá cuando el servicio responda.";
+    document.body.prepend(b);
+  }
+  b.hidden = !down;
+}
+
 async function loadBasics() {
-  state.rondas = await api("/api/kraal/rondas");
-  state.volunteers = await api("/api/kraal/volunteers");
-  if (!state.rondas.some(r => String(r.id) === String(state.ronda))) state.ronda = state.rondas[0] ? String(state.rondas[0].id) : null;
-  if (!state.volunteers.some(v => String(v.id) === String(state.me))) state.me = null;
-  state.ramas = state.ronda ? await api(`/api/kraal/rondas/${state.ronda}/ramas`) : [];
-  state.ramas.sort((a, b) => ramaOrder(a.name) - ramaOrder(b.name) || a.name.localeCompare(b.name, "es"));
+  try {
+    state.rondas = await api("/api/kraal/rondas");
+    state.volunteers = await api("/api/kraal/volunteers");
+    store.set("rondas", JSON.stringify(state.rondas));            // remembered for when kraal is down
+    store.set("volunteers", JSON.stringify(state.volunteers));
+    if (!state.rondas.some(r => String(r.id) === String(state.ronda))) state.ronda = state.rondas[0] ? String(state.rondas[0].id) : null;
+    if (!state.volunteers.some(v => String(v.id) === String(state.me))) state.me = null;
+    state.ramas = state.ronda ? await api(`/api/kraal/rondas/${state.ronda}/ramas`) : [];
+    state.ramas.sort((a, b) => ramaOrder(a.name) - ramaOrder(b.name) || a.name.localeCompare(b.name, "es"));
+    setKraalBanner(false);
+  } catch {
+    // Kraal is down: keep what we already had, or what we remembered, and keep going,
+    // so the Actas pages (meetings, treasury, outings, notices) still work.
+    if (!state.rondas.length) state.rondas = JSON.parse(store.get("rondas") || "[]");
+    if (!state.volunteers.length) state.volunteers = JSON.parse(store.get("volunteers") || "[]");
+    setKraalBanner(true);
+  }
   $("#ronda-select").replaceChildren(...options(state.rondas, "id", "year_label", state.rondas.length ? null : "Sin rondas"));
   $("#ronda-select").value = state.ronda || "";
   $("#me-select").replaceChildren(...options(state.volunteers, "id", "name", "Elige tu nombre"));
@@ -431,7 +469,7 @@ function connect() {
   if (state.source) state.source.close();
   state.source = null; state.notices = []; state.unread = 0; state.ready = false; updateUnread();
   if (!state.ronda || !state.me) { setLive(false, "Elige quién eres para recibir avisos"); renderBoard(); return; }
-  const src = new EventSource(`/api/avisos/stream?ronda_id=${state.ronda}&volunteer_id=${state.me}`);
+    const src = new EventSource(`${window.CONFIG.ACTAS_URL}/api/avisos/stream?ronda_id=${state.ronda}&volunteer_id=${state.me}`);
   state.source = src;
   src.onopen = () => { setLive(true, `Recibiendo avisos como ${meName()}`); setTimeout(() => state.ready = true, 600); };
   src.onerror = () => setLive(false, "Conexión perdida, reconectando…");
