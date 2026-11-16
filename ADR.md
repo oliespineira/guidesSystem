@@ -42,6 +42,8 @@ The cost is that the seam grew from one function to five, so Domain 2 depends mo
 
 
 ## 3. Data model: ronda_id as anchor, with a denormalised copy on rama_assignments
+
+**Status:** Superseded by [7]
 Date: 2026-09-20
 
 
@@ -146,6 +148,43 @@ This has allowed me to deploy the two services independently and to establish a 
 The costs are that the copied code (slug, errors, db helpers) can drift apart if I change it in one service and forget the other, and that what used to be function calls through seam.py are now network calls, which can be slow or fail. That is why every call to kraal needs a timeout and a clear error when kraal is unavailable.
 
 ADR-2 almost held: seam.py was still the only file in Actas that needed Kraal, but Kraal depended on the shared messaging package, which I only discovered when splitting.
+
+
+
+## ADR-7: Data and Migrations
+
+**Date:** 2026-11-16
+**Status:** Accepted
+
+
+### Context
+In the first assignment all the data lived in one SQLite file and the schema was created on every start with CREATE TABLE IF NOT EXISTS (ADR-3). That only allowed adding new tables, never changing existing ones. Assignment 2 requires one SQL Server database per service, each with its own login that cannot access the other database and versioned migrations that change the schema without losing data.
+
+### Decision
+**One database per service.** Kraal owns rondas, volunteers, roles, ramas and rama_assignments. Actas owns the other 11 tables (meetings, agenda, decisions, calendar, the treasury tables, votes, bookings and notices). Locally both databases live in one SQL Server container; on Azure they are two serverless databases on one logical server. Each service has its own login (kraal_app, actas_app) with db_owner rights only on its own database. I checked this with sqlcmd: kraal_app can open kraal but gets "Cannot open database actas".
+
+**Integrity lost at the seam.** Three foreign keys pointed to Kraal's rondas table: meetings.ronda_id, calendar_events.ronda_id and budgets.ronda_id. A database cannot check a foreign key against a table in another database, so they became plain ids, like votes.volunteer_id already was. The treasury also read the volunteer's name directly from Kraal's volunteers table; it now gets it from the membership endpoint. I compensate in code: writes check the ronda over HTTP before saving (require_ronda), so a new row never gets a ronda_id that does not exist. Reads only check it when Kraal answers. Nothing re-checks the ids afterwards, but the app has no operation to delete a ronda, so a row cannot lose its ronda later.
+
+**No data moved.** The SQLite database from the first assignment only had demo data, so both services start with empty databases instead of using an export/import script.
+
+**Migrations with my own runner.** Each service has a migrations/ folder with numbered SQL files (001_init.sql, ...). At startup, migrate.py creates a schema_migrations table if it is missing, compares it with the files, and applies only the missing ones in order. Each migration runs in one transaction together with the row that records it, so it is applied completely or not at all. If it fails, it is rolled back and the service refuses to start. It logs "Applied migration 001_init" the first time and "No pending migrations" on every start after that. Applied migrations are never edited: a correction is a new file.
+
+**Porting from SQLite to SQL Server.** I kept the code's sqlite3 style (conn.execute with ? placeholders) with a small adapter in db.py, so only the SQL dialect had to change. The main changes were: INT IDENTITY instead of AUTOINCREMENT; NVARCHAR with a bounded length for every column in a UNIQUE (SQL Server cannot index NVARCHAR(MAX)); dates kept as ISO text and booleans as INT so the API returns the same values as before; CONVERT(NVARCHAR(19), SYSUTCDATETIME(), 120) instead of datetime('now'); [rule] in brackets because RULE is a reserved word; every selected column listed in GROUP BY; and the new id read with SCOPE_IDENTITY() in the same batch as the INSERT, because pymssql's lastrowid returned the wrong id. The tests on SQL Server found that last bug.
+
+### Alternatives considered
+- Alembic or an ORM: they would hide the SQL differences, but I would have to explain a much larger tool line by line. My runner is about 40 lines and I can explain all of it.
+- Keeping the ronda foreign keys by copying the rondas table into actas: the two copies could disagree, and actas would be reading data it does not own.
+- Moving the old SQLite data with a script: not worth it for demo data.
+- Using DATE and BIT types: more correct for SQL Server, but they change what the API returns and how dates are compared, and this assignment asks for no new features.
+
+### Consequences
+Referential integrity across the seam is now enforced in code at write time, not by the database. If someone deleted a ronda directly in Kraal's database, actas rows could point to a ronda that no longer exists.
+
+SQL Server's default collation is case-insensitive, so UNIQUE (ronda_id, role_name) now treats "Tesorera" and "tesorera" as the same role. This fixes half of defect 2 from my review; accents are still compared exactly.
+
+Recovery plan for a bad migration: because each migration runs in a transaction, a migration that fails leaves the database unchanged, and the service does not start, so the post-deploy health check fails. I fix it with a new corrective migration, never by editing the applied one. If a migration succeeds but damages data, I restore the database from Azure SQL's automatic point-in-time backup into a new database and point DATABASE_URL at it.
+
+
 
 ## ADR-9
 
