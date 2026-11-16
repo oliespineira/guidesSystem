@@ -1,4 +1,4 @@
-import sqlite3
+from app.db import Connection, IntegrityError
 
 from app.db import require_row
 from app.errors import ConflictError, InvalidInputError
@@ -13,30 +13,30 @@ class InvalidAvailabilityError(InvalidInputError):
     """availability_pct outside 0-100."""
 
 
-def create_ronda(conn: sqlite3.Connection, year_label: str, start_date: str) -> int:
+def create_ronda(conn: Connection, year_label: str, start_date: str) -> int:
     year_label = require_text(year_label, "Ronda Label" )
     try:
         cur = conn.execute(
             "INSERT INTO rondas (year_label, start_date) VALUES (?, ?)",
             (year_label, start_date),
         )
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         raise ConflictError(f"Ronda '{year_label}' already exists") from None
     conn.commit()
     return cur.lastrowid
 
 
-def list_rondas(conn: sqlite3.Connection) -> list[dict]:
+def list_rondas(conn: Connection) -> list[dict]:
     rows = conn.execute("SELECT * FROM rondas ORDER BY start_date DESC").fetchall()
     return [dict(r) for r in rows]
 
 
 
-def list_volunteers(conn: sqlite3.Connection) -> list[dict]:
+def list_volunteers(conn: Connection) -> list[dict]:
     rows = conn.execute("SELECT id, name FROM volunteers WHERE active = 1 ORDER BY name").fetchall()
     return [dict(r) for r in rows]
 
-def add_volunteer(conn: sqlite3.Connection, name: str, joined_date: str | None = None) -> int:
+def add_volunteer(conn: Connection, name: str, joined_date: str | None = None) -> int:
     name= require_text(name, "Volunteer name")
     cur = conn.execute(
         "INSERT INTO volunteers (name, joined_date) VALUES (?, ?)",
@@ -46,7 +46,7 @@ def add_volunteer(conn: sqlite3.Connection, name: str, joined_date: str | None =
     return cur.lastrowid
 
 
-def assign_role(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int, role_name: str) -> int:
+def assign_role(conn: Connection, ronda_id: int, volunteer_id: int, role_name: str) -> int:
     require_row(conn, "rondas", ronda_id)
     require_row(conn, "volunteers", volunteer_id)
     role_name= require_text(role_name, "Role Name")
@@ -64,7 +64,7 @@ def assign_role(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int, role
     return cur.lastrowid
 
 
-def list_roles(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
+def list_roles(conn: Connection, ronda_id: int) -> list[dict]:
     require_row(conn, "rondas", ronda_id)
     rows = conn.execute(
         """SELECT r.role_name, v.id AS volunteer_id, v.name AS volunteer_name
@@ -74,27 +74,27 @@ def list_roles(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
     ).fetchall()
     return [dict(r) for r in rows]
 
-def create_rama(conn: sqlite3.Connection, ronda_id: int, name: str) -> int:
+def create_rama(conn: Connection, ronda_id: int, name: str) -> int:
     require_row(conn, "rondas", ronda_id)
     name= require_text(name, "Rama_name")
     try:
         cur = conn.execute(
             "INSERT INTO ramas (ronda_id, name) VALUES (?, ?)", (ronda_id, name)
         )
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         raise ConflictError(f"Rama '{name}' already exists in this ronda") from None
     conn.commit()
     return cur.lastrowid
 
 
-def list_ramas(conn: sqlite3.Connection, ronda_id: int) -> list[dict]:
+def list_ramas(conn: Connection, ronda_id: int) -> list[dict]:
     require_row(conn, "rondas", ronda_id)
     rows = conn.execute("SELECT id, name FROM ramas WHERE ronda_id = ? ORDER BY name", (ronda_id,)).fetchall()
     return [dict(r) for r in rows]
 
 
 def assign_to_rama(
-    conn: sqlite3.Connection,
+    conn: Connection,
     rama_id: int,
     volunteer_id: int,
     availability_pct: int | None = None,
@@ -124,7 +124,7 @@ def assign_to_rama(
     return cur.lastrowid
 
 
-def get_roster(conn: sqlite3.Connection, ronda_id: int) -> dict[str, list[str]]:
+def get_roster(conn: Connection, ronda_id: int) -> dict[str, list[str]]:
     require_row(conn, "rondas", ronda_id)
     rows = conn.execute(
         """SELECT r.name AS rama_name, v.name AS volunteer_name
@@ -149,7 +149,7 @@ class ContinuityReport:
     moved: dict[str, tuple[str, str]]
 
 
-def continuity_report(conn: sqlite3.Connection, prev_ronda_id: int, new_ronda_id: int) -> ContinuityReport:
+def continuity_report(conn: Connection, prev_ronda_id: int, new_ronda_id: int) -> ContinuityReport:
     require_row(conn, "rondas", prev_ronda_id)
     require_row(conn, "rondas", new_ronda_id)
     prev = _volunteer_rama_map(conn, prev_ronda_id)
@@ -165,7 +165,7 @@ def continuity_report(conn: sqlite3.Connection, prev_ronda_id: int, new_ronda_id
     )
 
 
-def _volunteer_rama_map(conn: sqlite3.Connection, ronda_id: int) -> dict[int, tuple[str, str]]:
+def _volunteer_rama_map(conn: Connection, ronda_id: int) -> dict[int, tuple[str, str]]:
     rows = conn.execute(
         """SELECT v.id AS volunteer_id, v.name AS volunteer_name, r.name AS rama_name
            FROM rama_assignments ra
@@ -178,7 +178,7 @@ def _volunteer_rama_map(conn: sqlite3.Connection, ronda_id: int) -> dict[int, tu
 
 
 
-def ronda_member_ids(conn: sqlite3.Connection, ronda_id: int) -> set[int]:
+def ronda_member_ids(conn: Connection, ronda_id: int) -> set[int]:
     """Everyone active in the kraal this ronda: in a rama, holding a role, or both."""
     require_row(conn, "rondas", ronda_id)
     rows = conn.execute(
@@ -189,7 +189,7 @@ def ronda_member_ids(conn: sqlite3.Connection, ronda_id: int) -> set[int]:
     ).fetchall()
     return {r["volunteer_id"] for r in rows}
 
-def role_holder_ids(conn: sqlite3.Connection, ronda_id: int, role_name: str) -> set[int]:
+def role_holder_ids(conn: Connection, ronda_id: int, role_name: str) -> set[int]:
     """Ids of whoever holds this role in this ronda. Compared as slugs, so 'Tesorera' matches 'tesorera'."""
     require_row(conn, "rondas", ronda_id)
     rows = conn.execute("SELECT volunteer_id, role_name FROM roles WHERE ronda_id = ?", (ronda_id,)).fetchall()
@@ -197,11 +197,11 @@ def role_holder_ids(conn: sqlite3.Connection, ronda_id: int, role_name: str) -> 
 
 
 #NEW FUNCTIONS FOR ASSIGNMENT 2:
-def get_ronda(conn: sqlite3.Connection, ronda_id: int) -> dict:
+def get_ronda(conn: Connection, ronda_id: int) -> dict:
     return dict(require_row(conn, "rondas", ronda_id))
 
 
-def volunteer_membership(conn: sqlite3.Connection, ronda_id: int, volunteer_id: int) -> dict:
+def volunteer_membership(conn: Connection, ronda_id: int, volunteer_id: int) -> dict:
     require_row(conn, "rondas", ronda_id)
     volunteer = require_row(conn, "volunteers", volunteer_id)
     rama = conn.execute(
