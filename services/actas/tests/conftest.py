@@ -1,13 +1,17 @@
+import os
 import re
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.actas import seam
-from app.db import get_connection, init_db
+from app.db import get_connection
 from app.errors import NotFoundError, ServiceUnavailableError
+from app.migrate import run_migrations
 
-
+# Children before parents, so no foreign key blocks a DELETE.
+TABLES = ["votes", "votings", "bookings", "request_events", "budget_requests", "budgets",
+          "decisions", "agenda_items", "meetings", "calendar_events", "notices"]
 class FakeKraal:
     """Stands in for the kraal service in actas tests.
 
@@ -82,24 +86,34 @@ def kraal(monkeypatch):
     fake = FakeKraal()
     monkeypatch.setattr(seam, "_kraal_get", fake.get)
     return fake
+@pytest.fixture(scope="session", autouse=True)
+def test_database():
+    """Once per test run: point the app at the test database and apply the migrations."""
+    url = os.environ.get("TEST_DATABASE_URL", "")
+    if not url.rstrip("/").endswith("_test"):
+        pytest.exit("Set TEST_DATABASE_URL to a SQL Server database whose name ends in _test", returncode=2)
+    os.environ["DATABASE_URL"] = url
+    conn = get_connection()
+    run_migrations(conn)
+    conn.close()
 
 
 @pytest.fixture
 def conn():
-    c = get_connection(":memory:")
-    init_db(c)
+    """Before every test: empty every table, so each test starts from a clean database."""
+    c = get_connection()
+    for table in TABLES:
+        c.execute(f"DELETE FROM {table}")
+    c.commit()
     yield c
     c.close()
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch, kraal):
-    # A real temp file, not :memory:, because every request opens its own connection.
-    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+def client(conn, kraal):
     from app.main import app
-    with TestClient(app) as c:   # the `with` runs the lifespan (creates the schema)
+    with TestClient(app) as c:
         yield c
-
 
 class RecordingNotifier:
     """Fake Notifier for tests: remembers what would have been sent, saves and delivers nothing."""

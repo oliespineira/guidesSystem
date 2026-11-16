@@ -3,9 +3,10 @@ import time
 from urllib.parse import unquote, urlparse
 
 import pymssql
-IntegrityError = pymssql.IntegrityError   # re-exported, so the services never import the driver themselves
 
 from app.errors import NotFoundError
+
+IntegrityError = pymssql.IntegrityError   # re-exported, so the services never import the driver themselves
 
 
 class Row(dict):
@@ -20,8 +21,9 @@ class Row(dict):
 class Cursor:
     """Wraps a pymssql cursor so it returns Row objects."""
 
-    def __init__(self, cursor):
+    def __init__(self, cursor, lastrowid=None):
         self._cursor = cursor
+        self._lastrowid = lastrowid
 
     def _row(self, values):
         names = [column[0] for column in self._cursor.description]
@@ -43,7 +45,7 @@ class Cursor:
 
     @property
     def lastrowid(self):
-        return self._cursor.lastrowid
+        return self._lastrowid
 
 
 class Connection:
@@ -54,8 +56,17 @@ class Connection:
 
     def execute(self, sql: str, params=()) -> Cursor:
         cursor = self._raw.cursor()
-        cursor.execute(sql.replace("?", "%s"), tuple(params) or None)
-        return Cursor(cursor)
+        query = sql.replace("?", "%s")
+        is_insert = query.lstrip().upper().startswith("INSERT")
+        if is_insert:
+            # Ask for the new id in the same batch, so no later INSERT can change the answer.
+            query += "; SELECT CAST(SCOPE_IDENTITY() AS INT)"
+        cursor.execute(query, tuple(params) or None)
+        lastrowid = None
+        if is_insert:
+            row = cursor.fetchone()
+            lastrowid = row[0] if row else None
+        return Cursor(cursor, lastrowid)
 
     def commit(self):
         self._raw.commit()
@@ -99,10 +110,10 @@ def wait_for_db(max_wait_s: int = 90) -> Connection:
     while True:
         try:
             return get_connection(attempts=1)
-        except pymssql.OperationalError:
+        except pymssql.OperationalError as exc:
             if time.monotonic() + delay > deadline:
                 raise
-            print(f"Database not ready, retrying in {delay}s", flush=True)
+            print(f"Database not ready ({exc.args[0] if exc.args else exc}), retrying in {delay}s", flush=True)
             time.sleep(delay)
             delay = min(delay * 2, 10)
 
