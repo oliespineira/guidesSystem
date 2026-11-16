@@ -1,5 +1,6 @@
 import os
 from contextlib import asynccontextmanager
+import time
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -10,6 +11,8 @@ from app.errors import DomainError
 from app.kraal.routes import router as kraal_router
 from app.migrate import run_migrations
 
+from app.db import get_connection, wait_for_db
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,6 +25,25 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Guias Torrelodones - Kraal", lifespan=lifespan)
 app.include_router(kraal_router)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.environ.get("UI_ORIGIN", "http://localhost:8080")],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Last-Event-ID"],
+)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    status = 500
+    try:
+        response = await call_next(request)
+        status = response.status_code
+        return response
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000
+        print(f"{request.method} {request.url.path} {status} {duration_ms:.0f}ms", flush=True)
+
 
 @app.exception_handler(DomainError)
 async def domain_error_handler(request: Request, exc: DomainError):
@@ -30,9 +52,19 @@ async def domain_error_handler(request: Request, exc: DomainError):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
-
+    version = os.environ.get("GIT_SHA", "local")
+    try:
+        conn = get_connection(attempts=1)
+        try:
+            conn.execute("INSERT INTO schema_migrations (version) VALUES ('health-probe')")
+            conn.execute("SELECT version FROM schema_migrations WHERE version = 'health-probe'").fetchone()
+        finally:
+            conn.rollback()
+            conn.close()
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "error", "db": "error", "version": version})
+    return {"status": "ok", "db": "ok", "version": version}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port, access_log=False)

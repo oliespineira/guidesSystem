@@ -3,8 +3,19 @@ def _ronda(client, label="2026"):
 
 
 def test_health(client):
-    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health").json() == {"status": "ok", "db": "ok", "version": "local"}
 
+
+def test_health_is_503_when_the_database_fails(client, monkeypatch):
+    import app.main
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("database unreachable")
+
+    monkeypatch.setattr(app.main, "get_connection", broken)
+    r = client.get("/health")
+    assert r.status_code == 503
+    assert r.json()["db"] == "error"
 
 def test_duplicate_ronda_returns_409(client):
     assert _ronda(client).status_code == 201
