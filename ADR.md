@@ -146,3 +146,18 @@ This has allowed me to deploy the two services independently and to establish a 
 The costs are that the copied code (slug, errors, db helpers) can drift apart if I change it in one service and forget the other, and that what used to be function calls through seam.py are now network calls, which can be slow or fail. That is why every call to kraal needs a timeout and a clear error when kraal is unavailable.
 
 ADR-2 almost held: seam.py was still the only file in Actas that needed Kraal, but Kraal depended on the shared messaging package, which I only discovered when splitting.
+
+## ADR-9
+
+To keep actas working when kraal is down, I separated two kinds of ronda checks. Writes (creating a meeting, a calendar event, a budget or a notice) use a strict check: if kraal does not answer, they fail with a 503, because saving a ronda_id that might not exist would store bad data. Reads (listing meetings, the calendar, budgets, requests and bookings) use a best-effort check: they check the ronda when kraal answers, but if kraal is down they still return actas's own data, because a read cannot corrupt anything. treasury_info stays strict even though it is a read, because its whole answer (who the treasurer is) comes from kraal.
+
+The notice stream degrades instead of failing: if kraal is down, actas cannot know the volunteer's rama and roles, so it only subscribes them to the whole-kraal notices.
+
+The seam kept the same function names and parameters as in the first assignment, including the conn parameter, which is not used anymore. Because of this, none of the files that call the seam had to change, which is what ADR-2 promised.
+
+- actas tests don't call the real kraal: a FakeKraal in conftest.py replaces _kraal_get with monkeypatch
+- the fake has the same method names as kraal's service (create_ronda, add_volunteer...), so the tests barely changed
+- it returns the same shapes as the real kraal endpoints (I fixed /roles to include volunteer_name to match)
+- autouse=True: every actas test gets the fake automatically, so no test can make a real network call by accident (this happened: a test without the fake tried to reach http://kraal:8000)
+- kraal.down = True simulates kraal being unavailable: test_kraal_down_writes_fail_with_503_but_reads_still_work
+- what the fake doesn't test: the real HTTP call in _kraal_get (timeouts, real 404s) → integration test on Friday
