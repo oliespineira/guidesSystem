@@ -1,6 +1,5 @@
 #business logic for the second functionality of the system. 
 #overall it takes a database connection, s it needs no web server. Its job is to validate input, write to the tables meetings, agenda_items, decisions and calendar_events, and read a meeting back as one nested structure.
-import sqlite3 #pythion's built in database library
 from datetime import date#used to check that date string is really a date and to compare start and end dates.
 
 from app.db import require_row #fetches a row by id or raises "not found"

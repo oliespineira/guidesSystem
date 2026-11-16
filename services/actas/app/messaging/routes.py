@@ -1,6 +1,6 @@
 import asyncio
 import json
-import sqlite3
+from app.db import Connection
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
@@ -21,7 +21,7 @@ def get_notifier(request: Request) -> Notifier:
 
 
 @router.post("", status_code=201)
-def post_notice(body: NoticeCreate, conn: sqlite3.Connection = Depends(get_db),
+def post_notice(body: NoticeCreate, conn: Connection = Depends(get_db),
                 notifier: Notifier = Depends(get_notifier)):
     require_ronda(conn, body.ronda_id)
     topic = notice_topic(body.ronda_id, body.audience, body.target)
@@ -29,7 +29,7 @@ def post_notice(body: NoticeCreate, conn: sqlite3.Connection = Depends(get_db),
 
 
 @router.get("/topics")
-def my_topics(ronda_id: int, volunteer_id: int, conn: sqlite3.Connection = Depends(get_db)):
+def my_topics(ronda_id: int, volunteer_id: int, conn: Connection = Depends(get_db)):
     return topics_for_member(ronda_id, membership(conn, ronda_id, volunteer_id))
 
 

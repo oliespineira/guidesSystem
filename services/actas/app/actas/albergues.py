@@ -1,5 +1,5 @@
 import os
-import sqlite3
+from app.db import Connection, IntegrityError
 from datetime import date, timedelta
 
 from app.actas.seam import check_ronda_if_available
@@ -25,7 +25,7 @@ def _parse(value: str, field: str) -> date:
         raise InvalidInputError(f"{field} must be an ISO date (YYYY-MM-DD)") from None
 
 
-def plan_booking(conn: sqlite3.Connection, event_id: int, book_by: str | None = None,
+def plan_booking(conn: Connection, event_id: int, book_by: str | None = None,
                  notifier: Notifier | None = None) -> str:
     """Say that an outing needs an albergue, and by when it must be booked."""
     event = require_row(conn, "calendar_events", event_id)
@@ -35,7 +35,7 @@ def plan_booking(conn: sqlite3.Connection, event_id: int, book_by: str | None = 
         raise InvalidInputError("book_by must be before the outing starts")
     try:
         conn.execute("INSERT INTO bookings (event_id, book_by) VALUES (?, ?)", (event_id, deadline.isoformat()))
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         raise ConflictError("This outing already has a booking plan") from None
     conn.commit()
     if notifier is not None:
@@ -45,7 +45,7 @@ def plan_booking(conn: sqlite3.Connection, event_id: int, book_by: str | None = 
     return deadline.isoformat()
 
 
-def mark_booked(conn: sqlite3.Connection, event_id: int, venue: str, request_id: int | None = None,
+def mark_booked(conn: Connection, event_id: int, venue: str, request_id: int | None = None,
                 notifier: Notifier | None = None) -> None:
     booking = conn.execute("SELECT * FROM bookings WHERE event_id = ?", (event_id,)).fetchone()
     if booking is None:
@@ -65,7 +65,7 @@ def mark_booked(conn: sqlite3.Connection, event_id: int, venue: str, request_id:
                         f"Albergue booked for {event['activity_type']}: {venue}", None)
 
 
-def list_bookings(conn: sqlite3.Connection, ronda_id: int, today: date | None = None) -> list[dict]:
+def list_bookings(conn: Connection, ronda_id: int, today: date | None = None) -> list[dict]:
     check_ronda_if_available(conn, ronda_id)
     today = today or date.today()
     rows = conn.execute(
@@ -82,7 +82,7 @@ def list_bookings(conn: sqlite3.Connection, ronda_id: int, today: date | None = 
     return result
 
 
-def send_reminders(conn: sqlite3.Connection, notifier: Notifier, today: date | None = None) -> int:
+def send_reminders(conn: Connection, notifier: Notifier, today: date | None = None) -> int:
     """Remind the kraal about every pending booking whose deadline is close or past.
     At most one reminder per booking per day. Returns how many were sent."""
     today = today or date.today()

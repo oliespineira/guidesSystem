@@ -13,19 +13,20 @@ from app.actas.policies import get_policy
 from app.actas.routes import router as actas_router
 from app.actas.tesoreria_routes import router as tesoreria_router
 from app.actas.votes_routes import router as votes_router
-from app.db import get_connection, init_db
+from app.db import wait_for_db
 from app.errors import DomainError
 from app.messaging.broker import Broker
 from app.messaging.notifier import BrokerNotifier
 from app.messaging.routes import router as avisos_router
-#Now we need 3 terminal all starting from GuidesSystem, both services can't use port 8000 at the same time, so each one gets ist own port
-#keeps 3 things that the main.py had before because they belong to actas: the broker and notifier, the reminder loop and the shutdown
+from app.migrate import run_migrations
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    conn = get_connection()
-    init_db(conn)
+    conn = wait_for_db()        # retries while the database starts or resumes from pause
+    run_migrations(conn)        # applies only the migrations not yet recorded
     conn.close()
-    get_policy()
+    get_policy()                # fail at startup if APPROVAL_POLICY is invalid
     broker = Broker(asyncio.get_running_loop())
     app.state.broker = broker
     app.state.notifier = BrokerNotifier(broker)
