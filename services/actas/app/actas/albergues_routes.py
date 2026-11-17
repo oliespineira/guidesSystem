@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends
 
 from app.actas import albergues
 from app.actas.schemas import BookingDone, BookingPlan
+from app.api_models import ERROR_RESPONSES
 from app.db import get_db
 from app.messaging.notifier import Notifier
 from app.messaging.routes import get_notifier
 
-router = APIRouter(prefix="/api/actas", tags=["albergues"])
+router = APIRouter(prefix="/api/actas", tags=["albergues"], responses=ERROR_RESPONSES)
 
 
 @router.post("/calendar/{event_id}/booking", status_code=201)

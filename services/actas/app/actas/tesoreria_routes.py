@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends
 from app.actas import tesoreria
 from app.actas.policies import ApprovalPolicy, get_policy
 from app.actas.schemas import BudgetCreate, RequestAction, RequestCreate, RequestPayment
+from app.api_models import ERROR_RESPONSES
 from app.db import get_db
 from app.messaging.notifier import Notifier
 from app.messaging.routes import get_notifier
 
-router = APIRouter(prefix="/api/actas", tags=["tesoreria"])
+router = APIRouter(prefix="/api/actas", tags=["tesoreria"], responses=ERROR_RESPONSES)
 
 
 @router.post("/budgets", status_code=201)

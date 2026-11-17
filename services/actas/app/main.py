@@ -24,6 +24,8 @@ from app.migrate import run_migrations
 from app.db import get_connection, wait_for_db
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api_models import HealthOut
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     conn = wait_for_db()        # retries while the database starts or resumes from pause
@@ -70,7 +72,8 @@ async def log_requests(request: Request, call_next):
 async def domain_error_handler(request: Request, exc: DomainError):
     return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
 
-@app.get("/health")
+@app.get("/health", response_model=HealthOut,
+         responses={503: {"model": HealthOut, "description": "Cannot read and write its own database"}})
 def health():
     version = os.environ.get("GIT_SHA", "local")
     try:

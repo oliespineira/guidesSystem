@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 
 
 from app.actas import service
+from app.api_models import ERROR_RESPONSES
 from app.actas.schemas import(
     AgendaItemCreate,
     CalendarEventCreate,
@@ -12,7 +13,7 @@ from app.actas.schemas import(
 
 from app.db import get_db #the generator function opens a connection, yields it and closes it in a finally block once the request is done.
 
-router = APIRouter(prefix="/api/actas", tags=["actas"])
+router = APIRouter(prefix="/api/actas", tags=["actas"], responses=ERROR_RESPONSES)
 
 @router.post("/meetings", status_code=201)
 def create_meeting(body:MeetingCreate, conn: Connection = Depends(get_db)):

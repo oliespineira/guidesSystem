@@ -1,18 +1,18 @@
 import asyncio
 import json
-from app.db import Connection
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 
 from app.actas.seam import membership, require_ronda
-from app.db import get_connection, get_db
+from app.api_models import ERROR_RESPONSES
+from app.db import Connection, get_connection, get_db
 from app.errors import ServiceUnavailableError
 from app.messaging.notifier import Notifier, notices_since
 from app.messaging.schemas import NoticeCreate
 from app.messaging.topics import all_topic, notice_topic, topics_for_member
 
-router = APIRouter(prefix="/api/avisos", tags=["avisos"])
+router = APIRouter(prefix="/api/avisos", tags=["avisos"], responses=ERROR_RESPONSES)
 
 
 def get_notifier(request: Request) -> Notifier:
