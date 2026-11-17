@@ -1,11 +1,11 @@
 import pytest
-
 from app.errors import InvalidInputError
 from app.messaging.notifier import BrokerNotifier, notices_since, save_notice
 
 
 class FakeBroker:
     """Records publish calls instead of delivering them: no event loop needed."""
+
     def __init__(self):
         self.published = []
 
@@ -18,7 +18,7 @@ def test_broker_notifier_saves_then_publishes_the_same_notice(conn):
     notice_id = BrokerNotifier(broker).notify(conn, "ronda.1.all", "Reunión el lunes", "A las 19h")
     saved = notices_since(conn, ["ronda.1.#"])
     assert [n["id"] for n in saved] == [notice_id]
-    assert broker.published == saved            # exactly what was stored, created_at included
+    assert broker.published == saved  # exactly what was stored, created_at included
 
 
 def test_blank_title_is_rejected_and_nothing_is_published(conn):

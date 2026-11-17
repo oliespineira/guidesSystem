@@ -1,10 +1,9 @@
 import os
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.db import get_connection
 from app.migrate import run_migrations
+from fastapi.testclient import TestClient
 
 # Children before parents, so no foreign key blocks a DELETE.
 TABLES = ["rama_assignments", "roles", "ramas", "volunteers", "rondas"]
@@ -36,5 +35,6 @@ def conn():
 @pytest.fixture
 def client(conn):
     from app.main import app
-    with TestClient(app) as c:   # the `with` runs the lifespan: connect and migrations
+
+    with TestClient(app) as c:  # the `with` runs the lifespan: connect and migrations
         yield c

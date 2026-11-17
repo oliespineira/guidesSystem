@@ -1,5 +1,6 @@
 import re
 import unicodedata
+
 from app.errors import InvalidInputError
 
 
@@ -14,15 +15,12 @@ def all_topic(ronda_id: int) -> str:
     return f"ronda.{ronda_id}.all"
 
 
-
-
 def rama_topic(ronda_id: int, rama_name: str) -> str:
     return f"ronda.{ronda_id}.rama.{slug(rama_name)}"
 
 
 def role_topic(ronda_id: int, role_name: str) -> str:
     return f"ronda.{ronda_id}.role.{slug(role_name)}"
-
 
 
 AUDIENCES = ("all", "rama", "role")
@@ -36,7 +34,12 @@ def notice_topic(ronda_id: int, audience: str, target: str | None = None) -> str
         raise InvalidInputError(f"audience must be one of {', '.join(AUDIENCES)}")
     if not target or not slug(target):
         raise InvalidInputError(f"A {audience} notice needs a target name")
-    return rama_topic(ronda_id, target) if audience == "rama" else role_topic(ronda_id, target)
+    return (
+        rama_topic(ronda_id, target)
+        if audience == "rama"
+        else role_topic(ronda_id, target)
+    )
+
 
 def matches(pattern: str, topic: str) -> bool:
     """'*' matches exactly one segment, '#' matches everything after it."""

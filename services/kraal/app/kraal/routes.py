@@ -51,8 +51,7 @@ def list_ramas(ronda_id: int, conn: Connection = Depends(get_db)):
 
 @router.post("/ramas/{rama_id}/members", status_code=201, response_model=CreatedOut)
 def add_member(rama_id: int, body: RamaMember, conn: Connection = Depends(get_db)):
-    return {"id": service.assign_to_rama(conn, rama_id, body.volunteer_id,
-                                         body.availability_pct, body.notes)}
+    return {"id": service.assign_to_rama(conn, rama_id, body.volunteer_id, body.availability_pct, body.notes)}
 
 
 @router.get("/rondas/{ronda_id}/roster")

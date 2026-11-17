@@ -17,6 +17,7 @@ def test_health_is_503_when_the_database_fails(client, monkeypatch):
     assert r.status_code == 503
     assert r.json()["db"] == "error"
 
+
 def test_duplicate_ronda_returns_409(client):
     assert _ronda(client).status_code == 201
     assert _ronda(client).status_code == 409
@@ -41,7 +42,8 @@ def test_list_roles_over_http(client):
     ana = client.post("/api/kraal/volunteers", json={"name": "Ana"}).json()["id"]
     client.post(f"/api/kraal/rondas/{rid}/roles", json={"volunteer_id": ana, "role_name": "Tesorera"})
     assert client.get(f"/api/kraal/rondas/{rid}/roles").json() == [
-        {"role_name": "Tesorera", "volunteer_id": ana, "volunteer_name": "Ana"}]
+        {"role_name": "Tesorera", "volunteer_id": ana, "volunteer_name": "Ana"}
+    ]
 
 
 def test_seam_endpoints_answer_what_actas_needs(client):
@@ -54,7 +56,11 @@ def test_seam_endpoints_answer_what_actas_needs(client):
     assert client.get(f"/api/kraal/rondas/{rid}").json()["id"] == rid
     assert client.get(f"/api/kraal/rondas/{rid}/members").json() == [ana]
     assert client.get(f"/api/kraal/rondas/{rid}/volunteers/{ana}/membership").json() == {
-        "volunteer_id": ana, "name": "Ana", "rama": "Guías", "roles": ["Tesorera"]}
+        "volunteer_id": ana,
+        "name": "Ana",
+        "rama": "Guías",
+        "roles": ["Tesorera"],
+    }
 
 
 def test_seam_endpoints_return_404_for_unknown_ids(client):

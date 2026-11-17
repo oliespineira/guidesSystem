@@ -20,7 +20,7 @@ def test_non_matching_subscriber_gets_nothing():
         broker = Broker(asyncio.get_running_loop())
         sub = broker.subscribe(["ronda.1.rama.alitas"])
         broker.publish(GUIAS)
-        await asyncio.sleep(0.05)      # give the loop time to run _fan_out
+        await asyncio.sleep(0.05)  # give the loop time to run _fan_out
         return sub.queue.empty()
 
     assert asyncio.run(scenario())
@@ -52,7 +52,7 @@ def test_publish_from_a_worker_thread_is_delivered():
     async def scenario():
         broker = Broker(asyncio.get_running_loop())
         sub = broker.subscribe(["ronda.1.#"])
-        await asyncio.to_thread(broker.publish, GUIAS)    # same situation as a sync FastAPI route
+        await asyncio.to_thread(broker.publish, GUIAS)  # same situation as a sync FastAPI route
         return await asyncio.wait_for(sub.queue.get(), timeout=1)
 
     assert asyncio.run(scenario())["id"] == 1

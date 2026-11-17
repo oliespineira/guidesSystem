@@ -1,9 +1,9 @@
-from app.db import Connection, IntegrityError
-
-from app.db import require_row
-from app.errors import ConflictError, InvalidInputError
 from dataclasses import dataclass
+
+from app.db import Connection, IntegrityError, require_row
+from app.errors import ConflictError, InvalidInputError
 from app.validation import require_text, slug
+
 
 class DuplicateRoleError(ConflictError):
     """The role is already held by someone this ronda."""
@@ -14,7 +14,7 @@ class InvalidAvailabilityError(InvalidInputError):
 
 
 def create_ronda(conn: Connection, year_label: str, start_date: str) -> int:
-    year_label = require_text(year_label, "Ronda Label" )
+    year_label = require_text(year_label, "Ronda Label")
     try:
         cur = conn.execute(
             "INSERT INTO rondas (year_label, start_date) VALUES (?, ?)",
@@ -31,13 +31,13 @@ def list_rondas(conn: Connection) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-
 def list_volunteers(conn: Connection) -> list[dict]:
     rows = conn.execute("SELECT id, name FROM volunteers WHERE active = 1 ORDER BY name").fetchall()
     return [dict(r) for r in rows]
 
+
 def add_volunteer(conn: Connection, name: str, joined_date: str | None = None) -> int:
-    name= require_text(name, "Volunteer name")
+    name = require_text(name, "Volunteer name")
     cur = conn.execute(
         "INSERT INTO volunteers (name, joined_date) VALUES (?, ?)",
         (name, joined_date),
@@ -49,7 +49,7 @@ def add_volunteer(conn: Connection, name: str, joined_date: str | None = None) -
 def assign_role(conn: Connection, ronda_id: int, volunteer_id: int, role_name: str) -> int:
     require_row(conn, "rondas", ronda_id)
     require_row(conn, "volunteers", volunteer_id)
-    role_name= require_text(role_name, "Role Name")
+    role_name = require_text(role_name, "Role Name")
     existing = conn.execute(
         "SELECT id FROM roles WHERE ronda_id = ? AND role_name = ?",
         (ronda_id, role_name),
@@ -74,13 +74,12 @@ def list_roles(conn: Connection, ronda_id: int) -> list[dict]:
     ).fetchall()
     return [dict(r) for r in rows]
 
+
 def create_rama(conn: Connection, ronda_id: int, name: str) -> int:
     require_row(conn, "rondas", ronda_id)
-    name= require_text(name, "Rama_name")
+    name = require_text(name, "Rama_name")
     try:
-        cur = conn.execute(
-            "INSERT INTO ramas (ronda_id, name) VALUES (?, ?)", (ronda_id, name)
-        )
+        cur = conn.execute("INSERT INTO ramas (ronda_id, name) VALUES (?, ?)", (ronda_id, name))
     except IntegrityError:
         raise ConflictError(f"Rama '{name}' already exists in this ronda") from None
     conn.commit()
@@ -177,7 +176,6 @@ def _volunteer_rama_map(conn: Connection, ronda_id: int) -> dict[int, tuple[str,
     return {row["volunteer_id"]: (row["volunteer_name"], row["rama_name"]) for row in rows}
 
 
-
 def ronda_member_ids(conn: Connection, ronda_id: int) -> set[int]:
     """Everyone active in the kraal this ronda: in a rama, holding a role, or both."""
     require_row(conn, "rondas", ronda_id)
@@ -189,6 +187,7 @@ def ronda_member_ids(conn: Connection, ronda_id: int) -> set[int]:
     ).fetchall()
     return {r["volunteer_id"] for r in rows}
 
+
 def role_holder_ids(conn: Connection, ronda_id: int, role_name: str) -> set[int]:
     """Ids of whoever holds this role in this ronda. Compared as slugs, so 'Tesorera' matches 'tesorera'."""
     require_row(conn, "rondas", ronda_id)
@@ -196,7 +195,7 @@ def role_holder_ids(conn: Connection, ronda_id: int, role_name: str) -> set[int]
     return {r["volunteer_id"] for r in rows if slug(r["role_name"]) == slug(role_name)}
 
 
-#NEW FUNCTIONS FOR ASSIGNMENT 2:
+# NEW FUNCTIONS FOR ASSIGNMENT 2:
 def get_ronda(conn: Connection, ronda_id: int) -> dict:
     return dict(require_row(conn, "rondas", ronda_id))
 

@@ -2,16 +2,28 @@ import os
 import re
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.actas import seam
 from app.db import get_connection
 from app.errors import NotFoundError, ServiceUnavailableError
 from app.migrate import run_migrations
+from fastapi.testclient import TestClient
 
 # Children before parents, so no foreign key blocks a DELETE.
-TABLES = ["votes", "votings", "bookings", "request_events", "budget_requests", "budgets",
-          "decisions", "agenda_items", "meetings", "calendar_events", "notices"]
+TABLES = [
+    "votes",
+    "votings",
+    "bookings",
+    "request_events",
+    "budget_requests",
+    "budgets",
+    "decisions",
+    "agenda_items",
+    "meetings",
+    "calendar_events",
+    "notices",
+]
+
+
 class FakeKraal:
     """Stands in for the kraal service in actas tests.
 
@@ -20,17 +32,16 @@ class FakeKraal:
     """
 
     def __init__(self):
-        self.down = False          # set to True to simulate kraal being unavailable
-        self.rondas = {}           # ronda_id -> ronda as kraal returns it
-        self.volunteers = {}       # volunteer_id -> name
-        self.ramas = {}            # rama_id -> (ronda_id, rama name)
-        self.rama_of = {}          # (ronda_id, volunteer_id) -> rama name
-        self.roles = []            # (ronda_id, volunteer_id, role_name)
+        self.down = False  # set to True to simulate kraal being unavailable
+        self.rondas = {}  # ronda_id -> ronda as kraal returns it
+        self.volunteers = {}  # volunteer_id -> name
+        self.ramas = {}  # rama_id -> (ronda_id, rama name)
+        self.rama_of = {}  # (ronda_id, volunteer_id) -> rama name
+        self.roles = []  # (ronda_id, volunteer_id, role_name)
 
     def create_ronda(self, conn, year_label, start_date):
         ronda_id = len(self.rondas) + 1
-        self.rondas[ronda_id] = {"id": ronda_id, "year_label": year_label,
-                                 "start_date": start_date, "status": "active"}
+        self.rondas[ronda_id] = {"id": ronda_id, "year_label": year_label, "start_date": start_date, "status": "active"}
         return ronda_id
 
     def add_volunteer(self, conn, name, joined_date=None):
@@ -66,8 +77,11 @@ class FakeKraal:
             with_role = {v for (r, v, _) in self.roles if r == ronda_id}
             return sorted(in_rama | with_role)
         if tail == "/roles":
-            return [{"role_name": name, "volunteer_id": v, "volunteer_name": self.volunteers[v]}
-                    for (r, v, name) in self.roles if r == ronda_id]
+            return [
+                {"role_name": name, "volunteer_id": v, "volunteer_name": self.volunteers[v]}
+                for (r, v, name) in self.roles
+                if r == ronda_id
+            ]
         volunteer_id = int(match.group(3))
         if ronda_id not in self.rondas:
             raise NotFoundError(f"rondas id {ronda_id} not found")
@@ -86,6 +100,8 @@ def kraal(monkeypatch):
     fake = FakeKraal()
     monkeypatch.setattr(seam, "_kraal_get", fake.get)
     return fake
+
+
 @pytest.fixture(scope="session", autouse=True)
 def test_database():
     """Once per test run: point the app at the test database and apply the migrations."""
@@ -112,11 +128,14 @@ def conn():
 @pytest.fixture
 def client(conn, kraal):
     from app.main import app
+
     with TestClient(app) as c:
         yield c
 
+
 class RecordingNotifier:
     """Fake Notifier for tests: remembers what would have been sent, saves and delivers nothing."""
+
     def __init__(self):
         self.sent = []
 

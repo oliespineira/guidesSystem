@@ -1,5 +1,4 @@
 import pytest
-
 from app.actas import policies
 from app.errors import InvalidInputError
 

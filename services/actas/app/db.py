@@ -6,7 +6,7 @@ import pymssql
 
 from app.errors import NotFoundError
 
-IntegrityError = pymssql.IntegrityError   # re-exported, so the services never import the driver themselves
+IntegrityError = pymssql.IntegrityError  # re-exported, so the services never import the driver themselves
 
 
 class Row(dict):
@@ -79,7 +79,7 @@ class Connection:
 
 
 def _connect_args() -> dict:
-    url = urlparse(os.environ["DATABASE_URL"])   # mssql://user:password@host:port/database
+    url = urlparse(os.environ["DATABASE_URL"])  # mssql://user:password@host:port/database
     return {
         "server": url.hostname,
         "port": url.port or 1433,

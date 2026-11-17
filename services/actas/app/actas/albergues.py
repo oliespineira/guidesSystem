@@ -1,9 +1,8 @@
 import os
-from app.db import Connection, IntegrityError
 from datetime import date, timedelta
 
 from app.actas.seam import check_ronda_if_available
-from app.db import require_row
+from app.db import Connection, IntegrityError, require_row
 from app.errors import ConflictError, InvalidInputError
 from app.messaging.notifier import Notifier
 from app.messaging.topics import all_topic
@@ -11,11 +10,11 @@ from app.validation import require_text
 
 
 def _lead_days() -> int:
-    return int(os.environ.get("BOOKING_LEAD_DAYS", "90"))      # how far ahead albergues must be booked
+    return int(os.environ.get("BOOKING_LEAD_DAYS", "90"))  # how far ahead albergues must be booked
 
 
 def _remind_days() -> int:
-    return int(os.environ.get("BOOKING_REMIND_DAYS", "14"))    # start reminding this close to the deadline
+    return int(os.environ.get("BOOKING_REMIND_DAYS", "14"))  # start reminding this close to the deadline
 
 
 def _parse(value: str, field: str) -> date:
@@ -25,8 +24,7 @@ def _parse(value: str, field: str) -> date:
         raise InvalidInputError(f"{field} must be an ISO date (YYYY-MM-DD)") from None
 
 
-def plan_booking(conn: Connection, event_id: int, book_by: str | None = None,
-                 notifier: Notifier | None = None) -> str:
+def plan_booking(conn: Connection, event_id: int, book_by: str | None = None, notifier: Notifier | None = None) -> str:
     """Say that an outing needs an albergue, and by when it must be booked."""
     event = require_row(conn, "calendar_events", event_id)
     start = date.fromisoformat(event["start_date"])
@@ -39,30 +37,37 @@ def plan_booking(conn: Connection, event_id: int, book_by: str | None = None,
         raise ConflictError("This outing already has a booking plan") from None
     conn.commit()
     if notifier is not None:
-        notifier.notify(conn, all_topic(event["ronda_id"]),
-                        f"Albergue needed: {event['activity_type']} on {event['start_date']}",
-                        f"Book before {deadline.isoformat()}.")
+        notifier.notify(
+            conn,
+            all_topic(event["ronda_id"]),
+            f"Albergue needed: {event['activity_type']} on {event['start_date']}",
+            f"Book before {deadline.isoformat()}.",
+        )
     return deadline.isoformat()
 
 
-def mark_booked(conn: Connection, event_id: int, venue: str, request_id: int | None = None,
-                notifier: Notifier | None = None) -> None:
+def mark_booked(
+    conn: Connection, event_id: int, venue: str, request_id: int | None = None, notifier: Notifier | None = None
+) -> None:
     booking = conn.execute("SELECT * FROM bookings WHERE event_id = ?", (event_id,)).fetchone()
     if booking is None:
-        require_row(conn, "calendar_events", event_id)          # 404 if the outing itself doesn't exist
+        require_row(conn, "calendar_events", event_id)  # 404 if the outing itself doesn't exist
         raise ConflictError("Plan the booking first")
     if booking["status"] == "booked":
         raise ConflictError("This outing is already booked")
     venue = require_text(venue, "Venue")
     if request_id is not None:
-        require_row(conn, "budget_requests", request_id)        # link the payment, if there is one
-    conn.execute("UPDATE bookings SET status = 'booked', venue = ?, request_id = ? WHERE event_id = ?",
-                 (venue, request_id, event_id))
+        require_row(conn, "budget_requests", request_id)  # link the payment, if there is one
+    conn.execute(
+        "UPDATE bookings SET status = 'booked', venue = ?, request_id = ? WHERE event_id = ?",
+        (venue, request_id, event_id),
+    )
     conn.commit()
     if notifier is not None:
         event = require_row(conn, "calendar_events", event_id)
-        notifier.notify(conn, all_topic(event["ronda_id"]),
-                        f"Albergue booked for {event['activity_type']}: {venue}", None)
+        notifier.notify(
+            conn, all_topic(event["ronda_id"]), f"Albergue booked for {event['activity_type']}: {venue}", None
+        )
 
 
 def list_bookings(conn: Connection, ronda_id: int, today: date | None = None) -> list[dict]:
@@ -77,8 +82,9 @@ def list_bookings(conn: Connection, ronda_id: int, today: date | None = None) ->
     result = []
     for r in rows:
         days_left = (date.fromisoformat(r["book_by"]) - today).days
-        result.append({**dict(r), "days_left": days_left,
-                       "urgent": r["status"] == "pending" and days_left <= _remind_days()})
+        result.append(
+            {**dict(r), "days_left": days_left, "urgent": r["status"] == "pending" and days_left <= _remind_days()}
+        )
     return result
 
 
@@ -97,9 +103,12 @@ def send_reminders(conn: Connection, notifier: Notifier, today: date | None = No
     for r in rows:
         days_left = (date.fromisoformat(r["book_by"]) - today).days
         when = f"{days_left} days left" if days_left >= 0 else f"{-days_left} days OVERDUE"
-        notifier.notify(conn, all_topic(r["ronda_id"]),
-                        f"Reminder: book the albergue for {r['activity_type']} ({r['start_date']})",
-                        f"Deadline {r['book_by']}: {when}.")
+        notifier.notify(
+            conn,
+            all_topic(r["ronda_id"]),
+            f"Reminder: book the albergue for {r['activity_type']} ({r['start_date']})",
+            f"Deadline {r['book_by']}: {when}.",
+        )
         conn.execute("UPDATE bookings SET last_reminded = ? WHERE event_id = ?", (today.isoformat(), r["event_id"]))
     conn.commit()
     return len(rows)
