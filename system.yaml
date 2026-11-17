@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=./system.schema.json
+student: oespineira.ieu2024
+prefix: oespineira-ieu2024
+public_url: https://TO-BE-SET-AFTER-FIRST-DEPLOY.azurestaticapps.net
+ui:
+  path: ui
+  static_web_app: oespineira-ieu2024-ui
+  calls: [kraal, actas]
+azure:
+  resource_group: rg-sdd-3a
+  container_apps_environment: oespineira-ieu2024-env
+  sql_server: oespineira-ieu2024-sql
+  registry: ghcr.io/oliespineira
+services:
+  kraal:
+    description: Who is in the kraal each ronda - volunteers, ramas and roles.
+    path: services/kraal
+    openapi: services/kraal/openapi.json
+    port_default: 8000
+    health: /health
+    migrations: services/kraal/migrations
+    env:
+      PORT: { default: 8000, description: Port the service listens on }
+      DATABASE_URL: { secret: true, description: Connection string of the kraal database (kraal_app login) }
+      UI_ORIGIN: { default: "http://localhost:8080", description: The only origin allowed by CORS }
+      GIT_SHA: { default: local, description: Commit the image was built from, shown by /health }
+    calls: []
+    azure:
+      container_app: oespineira-ieu2024-kraal
+      sql_database: oespineira-ieu2024-kraal-db
+  actas:
+    description: Meetings, decisions, votes, treasury, hostel bookings and live notices.
+    path: services/actas
+    openapi: services/actas/openapi.json
+    port_default: 8000
+    health: /health
+    migrations: services/actas/migrations
+    env:
+      PORT: { default: 8000, description: Port the service listens on }
+      DATABASE_URL: { secret: true, description: Connection string of the actas database (actas_app login) }
+      UI_ORIGIN: { default: "http://localhost:8080", description: The only origin allowed by CORS }
+      GIT_SHA: { default: local, description: Commit the image was built from, shown by /health }
+      KRAAL_URL: { default: "http://kraal:8000", description: Base URL of the kraal service }
+      KRAAL_TIMEOUT_S: { default: 2, description: Timeout in seconds for every call to kraal }
+      APPROVAL_POLICY: { default: reject_over_budget, description: Rule for money requests (reject_over_budget, auto_approve_small, always_to_meeting) }
+      AUTO_APPROVE_LIMIT_CENTS: { default: 5000, description: Limit for auto_approve_small, in cents }
+      TREASURER_ROLE: { default: Tesorera, description: Role allowed to approve, reject and pay }
+      BOOKING_LEAD_DAYS: { default: 90, description: Default booking deadline, in days before the outing }
+      BOOKING_REMIND_DAYS: { default: 14, description: Start reminding this many days before the deadline }
+      BOOKING_CHECK_SECONDS: { default: 3600, description: How often the reminder loop checks, in seconds }
+    calls:
+      - service: kraal
+        url_env: KRAAL_URL
+        endpoints:
+          - "GET /api/kraal/rondas/{ronda_id}"
+          - "GET /api/kraal/rondas/{ronda_id}/members"
+          - "GET /api/kraal/rondas/{ronda_id}/roles"
+          - "GET /api/kraal/rondas/{ronda_id}/volunteers/{volunteer_id}/membership"
+        timeout_s: 2
+        on_failure: >-
+          Writes that need kraal (create meeting, calendar event, budget or notice; vote; approve, reject or pay)
+          return 503 with "El servicio Kraal no está disponible; inténtalo de nuevo". Reads of actas's own data
+          still work. The notice stream degrades to whole-kraal notices only.
+    azure:
+      container_app: oespineira-ieu2024-actas
+      sql_database: oespineira-ieu2024-actas-db

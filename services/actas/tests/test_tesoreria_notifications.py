@@ -1,5 +1,4 @@
 import pytest
-
 from app.actas import policies, tesoreria
 
 

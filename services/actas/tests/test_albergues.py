@@ -1,10 +1,9 @@
 from datetime import date
 
 import pytest
-
-from app.actas import albergues, policies, service as actas, tesoreria
+from app.actas import albergues, policies, tesoreria
+from app.actas import service as actas
 from app.errors import ConflictError, InvalidInputError, NotFoundError
-
 
 
 @pytest.fixture
@@ -17,7 +16,7 @@ def outing(conn, kraal):
 def test_default_deadline_is_lead_days_before_the_outing(conn, outing, monkeypatch):
     monkeypatch.setenv("BOOKING_LEAD_DAYS", "90")
     _, event = outing
-    assert albergues.plan_booking(conn, event) == "2026-12-20"          # 90 days before 2027-03-20
+    assert albergues.plan_booking(conn, event) == "2026-12-20"  # 90 days before 2027-03-20
 
 
 def test_planning_tells_the_whole_kraal(conn, outing, notifier):
@@ -59,7 +58,7 @@ def test_mark_booked_links_the_payment_and_cannot_repeat(conn, outing, notifier)
 def test_mark_booked_needs_a_plan_a_venue_and_a_real_request(conn, outing):
     _, event = outing
     with pytest.raises(ConflictError):
-        albergues.mark_booked(conn, event, "Somewhere")                 # not planned yet
+        albergues.mark_booked(conn, event, "Somewhere")  # not planned yet
     with pytest.raises(NotFoundError):
         albergues.mark_booked(conn, 999, "Somewhere")
     albergues.plan_booking(conn, event, "2027-01-15")
@@ -67,6 +66,7 @@ def test_mark_booked_needs_a_plan_a_venue_and_a_real_request(conn, outing):
         albergues.mark_booked(conn, event, "   ")
     with pytest.raises(NotFoundError):
         albergues.mark_booked(conn, event, "Somewhere", request_id=999)
+
 
 def test_list_shows_days_left_and_urgency(conn, outing, monkeypatch):
     monkeypatch.setenv("BOOKING_REMIND_DAYS", "14")
@@ -82,10 +82,10 @@ def test_reminders_only_when_close_once_per_day_and_not_after_booking(conn, outi
     monkeypatch.setenv("BOOKING_REMIND_DAYS", "14")
     _, event = outing
     albergues.plan_booking(conn, event, "2027-01-15")
-    assert albergues.send_reminders(conn, notifier, today=date(2026, 12, 1)) == 0      # too early
-    assert albergues.send_reminders(conn, notifier, today=date(2027, 1, 5)) == 1       # 10 days left
-    assert albergues.send_reminders(conn, notifier, today=date(2027, 1, 5)) == 0       # already reminded today
-    assert albergues.send_reminders(conn, notifier, today=date(2027, 1, 20)) == 1      # overdue, new day
+    assert albergues.send_reminders(conn, notifier, today=date(2026, 12, 1)) == 0  # too early
+    assert albergues.send_reminders(conn, notifier, today=date(2027, 1, 5)) == 1  # 10 days left
+    assert albergues.send_reminders(conn, notifier, today=date(2027, 1, 5)) == 0  # already reminded today
+    assert albergues.send_reminders(conn, notifier, today=date(2027, 1, 20)) == 1  # overdue, new day
     assert "5 days OVERDUE" in notifier.sent[-1]["body"]
     albergues.mark_booked(conn, event, "Albergue Cercedilla")
-    assert albergues.send_reminders(conn, notifier, today=date(2027, 1, 21)) == 0      # booked: stop
+    assert albergues.send_reminders(conn, notifier, today=date(2027, 1, 21)) == 0  # booked: stop

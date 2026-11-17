@@ -1,15 +1,13 @@
-from app.db import Connection, IntegrityError
 import os
 from dataclasses import dataclass
 
 from app.actas.policies import ApprovalPolicy, Verdict
-from app.actas.seam import check_ronda_if_available, require_ronda, require_role, role_holders
-from app.db import require_row
+from app.actas.seam import check_ronda_if_available, require_role, require_ronda, role_holders
+from app.db import Connection, IntegrityError, require_row
 from app.errors import ConflictError, InvalidInputError
-from app.validation import require_text
-
 from app.messaging.notifier import Notifier
 from app.messaging.topics import rama_topic, role_topic
+from app.validation import require_text
 
 
 def _normalize(item: str) -> str:
@@ -22,6 +20,7 @@ def _log_event(conn, request_id, action, actor=None, note=None, payment_ref=None
         "INSERT INTO request_events (request_id, action, actor, note, payment_ref) VALUES (?, ?, ?, ?, ?)",
         (request_id, action, actor, note, payment_ref),
     )
+
 
 def _eur(cents: int) -> str:
     return f"{cents / 100:.2f} EUR"
@@ -44,6 +43,8 @@ def treasury_info(conn, ronda_id: int) -> dict:
     """Who may approve, reject and pay requests in this ronda."""
     require_ronda(conn, ronda_id)
     return {"role": _treasurer_role(), "volunteer_ids": sorted(role_holders(conn, ronda_id, _treasurer_role()))}
+
+
 def create_budget(conn: Connection, ronda_id: int, category: str, allocated_cents: int) -> int:
     require_ronda(conn, ronda_id)
     category = require_text(category, "Category")
@@ -58,6 +59,7 @@ def create_budget(conn: Connection, ronda_id: int, category: str, allocated_cent
         raise ConflictError(f"Budget '{category}' already exists for this ronda") from None
     conn.commit()
     return cur.lastrowid
+
 
 def remaining_cents(conn: Connection, budget_id: int) -> int:
     budget = require_row(conn, "budgets", budget_id)
@@ -93,6 +95,7 @@ def list_requests(conn: Connection, ronda_id: int) -> list[dict]:
     ).fetchall()
     return [dict(r) for r in rows]
 
+
 def similar_requests(conn, budget_id: int, item_key: str, rama: str) -> list[dict]:
     """Open requests for the same item from OTHER ramas in the same ronda."""
     rows = conn.execute(
@@ -113,9 +116,15 @@ class SubmitResult:
     similar: list[dict]
 
 
-
-def submit_request(conn, budget_id: int, rama: str, item: str, amount_cents: int,
-                   policy: ApprovalPolicy, notifier: Notifier | None = None) -> SubmitResult:
+def submit_request(
+    conn,
+    budget_id: int,
+    rama: str,
+    item: str,
+    amount_cents: int,
+    policy: ApprovalPolicy,
+    notifier: Notifier | None = None,
+) -> SubmitResult:
     require_row(conn, "budgets", budget_id)
     rama = require_text(rama, "Rama")
     item = require_text(item, "Item")
@@ -134,7 +143,7 @@ def submit_request(conn, budget_id: int, rama: str, item: str, amount_cents: int
     _log_event(conn, cur.lastrowid, "submitted", actor=rama)
     if verdict.status != "pending":
         _log_event(conn, cur.lastrowid, verdict.status, actor="policy", note=verdict.reason)
-    
+
     conn.commit()
 
     if notifier is not None:
@@ -143,26 +152,29 @@ def submit_request(conn, budget_id: int, rama: str, item: str, amount_cents: int
             body = verdict.reason
             if similar:
                 body += ". Already requested by: " + ", ".join(sorted({s["rama"] for s in similar}))
-            notifier.notify(conn, _treasurer_topic(ronda_id),
-                            f"New request from {rama}: {item} ({_eur(amount_cents)})", body)
+            notifier.notify(
+                conn, _treasurer_topic(ronda_id), f"New request from {rama}: {item} ({_eur(amount_cents)})", body
+            )
         else:
-            notifier.notify(conn, rama_topic(ronda_id, rama),
-                            f"Your request for {item} was {verdict.status}", verdict.reason)
+            notifier.notify(
+                conn, rama_topic(ronda_id, rama), f"Your request for {item} was {verdict.status}", verdict.reason
+            )
     return SubmitResult(cur.lastrowid, verdict, similar)
 
 
-#Here we define the changes of state of the requests. every change od state is an object that records itself.
+# Here we define the changes of state of the requests. every change od state is an object that records itself.
 
-ALLOWED = {"pending": {"approved", "rejected"}, "approved": {"paid"}} #order
+ALLOWED = {"pending": {"approved", "rejected"}, "approved": {"paid"}}  # order
+
 
 class RequestCommand:
     """Base class. Use a subclass: each one sets target_status."""
-    target_status: str
 
+    target_status: str
 
     def __init__(self, request_id: int, by: int, note: str | None = None):
         self.request_id = request_id
-        self.by = by                    # volunteer_id of whoever is acting: must hold the treasurer role
+        self.by = by  # volunteer_id of whoever is acting: must hold the treasurer role
         self.note = note
 
     def execute(self, conn: Connection, notifier: Notifier | None = None) -> None:
@@ -173,8 +185,7 @@ class RequestCommand:
         if self.target_status not in ALLOWED.get(req["status"], set()):
             raise ConflictError(f"Cannot move a {req['status']} request to {self.target_status}")
         self._check(conn, req)
-        conn.execute("UPDATE budget_requests SET status = ? WHERE id = ?",
-                     (self.target_status, self.request_id))
+        conn.execute("UPDATE budget_requests SET status = ? WHERE id = ?", (self.target_status, self.request_id))
         _log_event(conn, self.request_id, self.target_status, actor, self.note, self._payment_ref())
         conn.commit()
         if notifier is not None:
@@ -186,8 +197,9 @@ class RequestCommand:
         body = self.note
         if self._payment_ref():
             body = f"Payment reference: {self._payment_ref()}"
-        notifier.notify(conn, rama_topic(ronda_id, req["rama"]),
-                        f"Your request for {req['item']} was {self.target_status}", body)
+        notifier.notify(
+            conn, rama_topic(ronda_id, req["rama"]), f"Your request for {req['item']} was {self.target_status}", body
+        )
 
     def _check(self, conn, req) -> None:
         """Extra rule for one specific command. Default: none."""
@@ -227,4 +239,3 @@ def request_history(conn, request_id: int) -> list[dict]:
         (request_id,),
     ).fetchall()
     return [dict(r) for r in rows]
-        

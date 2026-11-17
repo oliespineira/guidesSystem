@@ -1,16 +1,15 @@
-#business logic for the second functionality of the system. 
-#overall it takes a database connection, s it needs no web server. Its job is to validate input, write to the tables meetings, agenda_items, decisions and calendar_events, and read a meeting back as one nested structure.
-from datetime import date#used to check that date string is really a date and to compare start and end dates.
-
-from app.db import require_row #fetches a row by id or raises "not found"
-from app.errors import InvalidInputError #error typr for pad input (HTTP 400N)
-from app.validation import require_text
+# business logic for the second functionality of the system.
+# overall it takes a database connection, s it needs no web server. Its job is to validate input, write to the tables meetings, agenda_items, decisions and calendar_events, and read a meeting back as one nested structure.
+from datetime import date  # used to check that date string is really a date and to compare start and end dates.
 
 from app.actas.seam import check_ronda_if_available, require_ronda
+from app.db import require_row  # fetches a row by id or raises "not found"
+from app.errors import InvalidInputError  # error typr for pad input (HTTP 400N)
+from app.validation import require_text
+
 
 class InvalidDateRangeError(InvalidInputError):
     """A calendar event ends before it starts."""
-
 
 
 def _parse_date(value: str, field: str) -> str:
@@ -22,7 +21,7 @@ def _parse_date(value: str, field: str) -> str:
 
 def create_meeting(conn, ronda_id: int, meeting_date: str, title: str) -> int:
     require_ronda(conn, ronda_id)
-    title= require_text(title, "Meeting Title")
+    title = require_text(title, "Meeting Title")
     cur = conn.execute(
         "INSERT INTO meetings (ronda_id, date, title) VALUES (?, ?, ?)",
         (ronda_id, _parse_date(meeting_date, "date"), title),
@@ -40,10 +39,11 @@ def list_meetings(conn, ronda_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def add_agenda_item(conn, meeting_id: int, section_title: str,
-                    content: str | None = None, position: int | None = None) -> int:
+def add_agenda_item(
+    conn, meeting_id: int, section_title: str, content: str | None = None, position: int | None = None
+) -> int:
     require_row(conn, "meetings", meeting_id)
-    section_title = require_text(section_title, "Section title" )
+    section_title = require_text(section_title, "Section title")
     if position is None:
         position = conn.execute(
             "SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM agenda_items WHERE meeting_id = ?",
@@ -68,8 +68,14 @@ def record_decision(conn, agenda_item_id: int, description: str, vote_result: st
     return cur.lastrowid
 
 
-def add_calendar_event(conn, ronda_id: int, start_date: str, activity_type: str,
-                       end_date: str | None = None, assigned_volunteers: str | None = None) -> int:
+def add_calendar_event(
+    conn,
+    ronda_id: int,
+    start_date: str,
+    activity_type: str,
+    end_date: str | None = None,
+    assigned_volunteers: str | None = None,
+) -> int:
     require_ronda(conn, ronda_id)
     activity_type = require_text(activity_type, "Activity type")
     start = _parse_date(start_date, "start_date")
@@ -87,9 +93,7 @@ def add_calendar_event(conn, ronda_id: int, start_date: str, activity_type: str,
 
 def list_calendar(conn, ronda_id: int) -> list[dict]:
     check_ronda_if_available(conn, ronda_id)
-    rows = conn.execute(
-        "SELECT * FROM calendar_events WHERE ronda_id = ? ORDER BY start_date", (ronda_id,)
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM calendar_events WHERE ronda_id = ? ORDER BY start_date", (ronda_id,)).fetchall()
     return [dict(r) for r in rows]
 
 

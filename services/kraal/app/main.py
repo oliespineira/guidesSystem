@@ -1,23 +1,23 @@
 import os
-from contextlib import asynccontextmanager
 import time
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.db import wait_for_db
+from app.api_models import HealthOut
+from app.db import get_connection, wait_for_db
 from app.errors import DomainError
 from app.kraal.routes import router as kraal_router
 from app.migrate import run_migrations
 
-from app.db import get_connection, wait_for_db
-from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    conn = wait_for_db()        # retries while the database starts or resumes from pause
-    run_migrations(conn)        # applies only the migrations not yet recorded in schema_migrations
+    conn = wait_for_db()  # retries while the database starts or resumes from pause
+    run_migrations(conn)  # applies only the migrations not yet recorded in schema_migrations
     conn.close()
     yield
 
@@ -31,6 +31,7 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Last-Event-ID"],
 )
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -50,7 +51,11 @@ async def domain_error_handler(request: Request, exc: DomainError):
     return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    response_model=HealthOut,
+    responses={503: {"model": HealthOut, "description": "Cannot read and write its own database"}},
+)
 def health():
     version = os.environ.get("GIT_SHA", "local")
     try:
@@ -65,6 +70,7 @@ def health():
         return JSONResponse(status_code=503, content={"status": "error", "db": "error", "version": version})
     return {"status": "ok", "db": "ok", "version": version}
 
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port, access_log=False)

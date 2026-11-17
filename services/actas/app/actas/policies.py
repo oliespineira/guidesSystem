@@ -4,20 +4,24 @@ from dataclasses import dataclass
 
 from app.errors import InvalidInputError
 
-@dataclass(frozen = True)
+
+@dataclass(frozen=True)
 class Verdict:
-    status:str #"approved" | "rejected"| "pending"
-    reason:str
+    status: str  # "approved" | "rejected"| "pending"
+    reason: str
+
 
 class ApprovalPolicy(ABC):
     @abstractmethod
-    def evaluate(self, amount_cents:int, remaining_cents:int)->Verdict: ...
+    def evaluate(self, amount_cents: int, remaining_cents: int) -> Verdict: ...
+
 
 class RejectOverBudget(ApprovalPolicy):
     def evaluate(self, amount_cents, remaining_cents):
-        if amount_cents>remaining_cents:
+        if amount_cents > remaining_cents:
             return Verdict("rejected", f"Exceeds remaining budget ({remaining_cents / 100:.2f} EUR)")
         return Verdict("pending", "Within budget; waiting for the treasurer")
+
 
 class AutoApproveUnder(ApprovalPolicy):
     def __init__(self, limit_cents: int):
@@ -33,8 +37,9 @@ class AutoApproveUnder(ApprovalPolicy):
 
 class AlwaysToMeeting(ApprovalPolicy):
     def evaluate(self, amount_cents, remaining_cents):
-        return Verdict("pending", "To be decided at the next meeting") #norechaza lo que se pasa de presupuesto, que se decida en la reu
-
+        return Verdict(
+            "pending", "To be decided at the next meeting"
+        )  # norechaza lo que se pasa de presupuesto, que se decida en la reu
 
 
 _POLICIES = {

@@ -1,13 +1,12 @@
 from datetime import datetime
 
 import pytest
-
-from app.actas import service as actas, votes
+from app.actas import service as actas
+from app.actas import votes
 from app.errors import ConflictError, InvalidInputError, NotFoundError
 
-
-BEFORE = datetime(2026, 10, 5, 19, 0)    # while the vote is open
-AFTER = datetime(2026, 10, 5, 21, 0)     # after it closes at 20:00
+BEFORE = datetime(2026, 10, 5, 19, 0)  # while the vote is open
+AFTER = datetime(2026, 10, 5, 21, 0)  # after it closes at 20:00
 
 
 @pytest.fixture
@@ -19,7 +18,7 @@ def setup(conn, kraal):
     for v in members[:3]:
         kraal.assign_to_rama(conn, guias, v)
     kraal.assign_role(conn, r, members[3], "Tesorera")
-    outsider = kraal.add_volunteer(conn, "Eva")              # exists, but not in this ronda
+    outsider = kraal.add_volunteer(conn, "Eva")  # exists, but not in this ronda
     meeting = actas.create_meeting(conn, r, "2026-10-05", "Kickoff")
     item = actas.add_agenda_item(conn, meeting, "Material")
     decision = actas.record_decision(conn, item, "Buy 4 tents")
@@ -75,14 +74,17 @@ def test_close_stores_result_on_the_decision_and_notifies_everyone(conn, setup, 
     assert meeting["vote_result"] == summary
     assert notifier.sent[0]["topic"].endswith(".all") and notifier.sent[0]["body"] == summary
     with pytest.raises(ConflictError):
-        votes.close_vote(conn, setup["decision"], now=AFTER)          # already closed
+        votes.close_vote(conn, setup["decision"], now=AFTER)  # already closed
 
 
-@pytest.mark.parametrize("yes, no, abstain, cast_passes, kraal_passes", [
-    (2, 1, 0, True, False),     # 2 of 4 is not MORE than half the kraal
-    (3, 1, 0, True, True),
-    (1, 1, 2, False, False),    # a tie does not pass
-])
+@pytest.mark.parametrize(
+    "yes, no, abstain, cast_passes, kraal_passes",
+    [
+        (2, 1, 0, True, False),  # 2 of 4 is not MORE than half the kraal
+        (3, 1, 0, True, True),
+        (1, 1, 2, False, False),  # a tie does not pass
+    ],
+)
 def test_counting_rules(yes, no, abstain, cast_passes, kraal_passes):
     t = votes.Tally(yes, no, abstain, electorate=4)
     assert votes.MajorityOfCast().passes(t) is cast_passes
@@ -90,15 +92,20 @@ def test_counting_rules(yes, no, abstain, cast_passes, kraal_passes):
 
 
 def test_open_vote_validation(conn, setup):
-    with pytest.raises(ConflictError):                                  # already open
+    with pytest.raises(ConflictError):  # already open
         votes.open_vote(conn, setup["decision"], "2026-12-01T20:00", now=BEFORE)
     with pytest.raises(NotFoundError):
         votes.open_vote(conn, 999, "2026-12-01T20:00", now=BEFORE)
 
 
-@pytest.mark.parametrize("closes_at, rule", [("not a date", "majority_of_cast"),
-                                             ("2026-01-01T10:00", "majority_of_cast"),   # in the past
-                                             ("2026-12-01T20:00", "loudest_wins")])
+@pytest.mark.parametrize(
+    "closes_at, rule",
+    [
+        ("not a date", "majority_of_cast"),
+        ("2026-01-01T10:00", "majority_of_cast"),  # in the past
+        ("2026-12-01T20:00", "loudest_wins"),
+    ],
+)
 def test_open_vote_rejects_bad_input(conn, setup, closes_at, rule):
     item = conn.execute("SELECT agenda_item_id FROM decisions WHERE id = ?", (setup["decision"],)).fetchone()[0]
     other = actas.record_decision(conn, item, "Another decision")

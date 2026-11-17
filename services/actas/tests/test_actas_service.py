@@ -3,7 +3,6 @@ from app.actas import service
 from app.errors import InvalidInputError, NotFoundError
 
 
-
 def make_ronda(conn, kraal):
     return kraal.create_ronda(conn, "Ronda Solar 11", "2026-09-01")
 
@@ -30,6 +29,7 @@ def test_calendar_event_end_before_start_is_rejected(conn, kraal):
     ronda = make_ronda(conn, kraal)
     with pytest.raises(service.InvalidDateRangeError):
         service.add_calendar_event(conn, ronda, "2026-09-10", "Camp", end_date="2026-09-05")
+
 
 def test_calendar_event_same_day_is_allowed(conn, kraal):
     ronda = make_ronda(conn, kraal)

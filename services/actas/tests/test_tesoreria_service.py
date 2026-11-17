@@ -1,8 +1,6 @@
 import pytest
-
 from app.actas import policies, tesoreria
 from app.errors import ConflictError, ForbiddenError, InvalidInputError, NotFoundError
-
 
 
 @pytest.fixture
@@ -21,7 +19,7 @@ def treasurer(conn, ronda, kraal):
 
 @pytest.fixture
 def budget(conn, ronda):
-    return tesoreria.create_budget(conn, ronda, "Material", 10000)   # 100.00 EUR
+    return tesoreria.create_budget(conn, ronda, "Material", 10000)  # 100.00 EUR
 
 
 def test_new_budget_has_everything_remaining(conn, budget):
@@ -157,6 +155,7 @@ def test_list_requests_newest_first_with_category(conn, ronda, budget):
 
 # ----- Only the treasurer can approve, reject or pay -----
 
+
 def test_only_the_treasurer_can_approve_reject_or_pay(conn, ronda, budget, treasurer, kraal):
     someone = kraal.add_volunteer(conn, "Ana")
     r = tesoreria.submit_request(conn, budget, "Guias", "Albergue", 3000, policies.RejectOverBudget())
@@ -166,7 +165,7 @@ def test_only_the_treasurer_can_approve_reject_or_pay(conn, ronda, budget, treas
     tesoreria.Approve(r.request_id, treasurer).execute(conn)
     with pytest.raises(ForbiddenError):
         tesoreria.MarkPaid(r.request_id, payment_ref="TRF-1", by=someone).execute(conn)
-    assert tesoreria.request_history(conn, r.request_id)[-1]["actor"] == "Marta"   # the person, not the role
+    assert tesoreria.request_history(conn, r.request_id)[-1]["actor"] == "Marta"  # the person, not the role
 
 
 def test_treasurer_of_another_ronda_cannot_act(conn, budget, kraal):

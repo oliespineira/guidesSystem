@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "guidesSystem system description",
+  "description": "Stand-in written from Assignment 2 section 8a, because the provided system.schema.json was not available. Replace it with the official file when it arrives.",
+  "type": "object",
+  "required": ["student", "prefix", "public_url", "ui", "azure", "services"],
+  "properties": {
+    "student": { "type": "string" },
+    "prefix": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "public_url": { "type": "string", "pattern": "^https://" },
+    "ui": {
+      "type": "object",
+      "required": ["path", "static_web_app", "calls"],
+      "properties": {
+        "path": { "type": "string" },
+        "static_web_app": { "type": "string" },
+        "calls": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      }
+    },
+    "azure": {
+      "type": "object",
+      "required": ["resource_group", "container_apps_environment", "sql_server", "registry"],
+      "properties": {
+        "resource_group": { "type": "string", "pattern": "^rg-sdd-3[ab]$" },
+        "container_apps_environment": { "type": "string" },
+        "sql_server": { "type": "string" },
+        "registry": { "type": "string" }
+      }
+    },
+    "services": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/service" }
+    }
+  },
+  "$defs": {
+    "service": {
+      "type": "object",
+      "required": ["description", "path", "openapi", "port_default", "health", "migrations", "env", "azure"],
+      "properties": {
+        "description": { "type": "string" },
+        "path": { "type": "string" },
+        "openapi": { "type": "string" },
+        "port_default": { "type": "integer" },
+        "health": { "type": "string", "pattern": "^/" },
+        "migrations": { "type": "string" },
+        "env": { "type": "object", "additionalProperties": { "$ref": "#/$defs/envVar" } },
+        "calls": { "type": "array", "items": { "$ref": "#/$defs/call" } },
+        "azure": {
+          "type": "object",
+          "required": ["container_app", "sql_database"],
+          "properties": {
+            "container_app": { "type": "string" },
+            "sql_database": { "type": "string" }
+          }
+        }
+      }
+    },
+    "envVar": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "default": {},
+        "secret": { "type": "boolean" },
+        "description": { "type": "string" }
+      },
+      "if": { "properties": { "secret": { "const": true } }, "required": ["secret"] },
+      "then": { "not": { "required": ["default"] } },
+      "else": { "required": ["default"] }
+    },
+    "call": {
+      "type": "object",
+      "required": ["service", "url_env", "endpoints", "timeout_s", "on_failure"],
+      "properties": {
+        "service": { "type": "string" },
+        "url_env": { "type": "string" },
+        "endpoints": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "timeout_s": { "type": "number" },
+        "on_failure": { "type": "string" }
+      }
+    }
+  }
+}

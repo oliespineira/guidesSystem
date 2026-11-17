@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from app.messaging.topics import matches
 
 
-@dataclass(eq=False)          # eq=False: compare by identity, so a Subscription can go in a set
+@dataclass(eq=False)  # eq=False: compare by identity, so a Subscription can go in a set
 class Subscription:
     patterns: tuple[str, ...]
     queue: asyncio.Queue = field(default_factory=asyncio.Queue)
