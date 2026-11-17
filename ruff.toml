@@ -1,0 +1,9 @@
+# Linting rules for both services. CI runs `ruff check` and `ruff format --check`.
+line-length = 120
+target-version = "py312"
+
+[lint]
+# E/F: real errors (syntax, undefined or unused names); I: import order.
+select = ["E", "F", "I"]
+# The formatter (ruff format) already keeps code lines short; long comments are allowed.
+ignore = ["E501"]
