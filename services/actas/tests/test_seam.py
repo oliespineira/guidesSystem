@@ -1,6 +1,5 @@
 import httpx
 import pytest
-
 from app.actas import seam
 from app.actas.seam import _kraal_get as real_kraal_get  # imported before the FakeKraal fixture replaces it
 from app.errors import NotFoundError, ServiceUnavailableError

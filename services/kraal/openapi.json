@@ -1136,6 +1136,7 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 100,
             "minLength": 1,
             "title": "Name"
           }
@@ -1166,7 +1167,8 @@
           "notes": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 1000
               },
               {
                 "type": "null"
@@ -1189,6 +1191,7 @@
           },
           "role_name": {
             "type": "string",
+            "maxLength": 100,
             "minLength": 1,
             "title": "Role Name"
           }
@@ -1204,6 +1207,7 @@
         "properties": {
           "year_label": {
             "type": "string",
+            "maxLength": 20,
             "minLength": 1,
             "title": "Year Label"
           },
@@ -1292,6 +1296,7 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 100,
             "minLength": 1,
             "title": "Name"
           },

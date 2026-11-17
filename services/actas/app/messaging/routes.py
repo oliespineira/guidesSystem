@@ -59,13 +59,9 @@ async def stream(
             member = await asyncio.to_thread(membership, conn, ronda_id, volunteer_id)
             patterns = topics_for_member(ronda_id, member)
         except ServiceUnavailableError:
-            patterns = [
-                all_topic(ronda_id)
-            ]  # degraded: Kraal is down, so only whole-kraal notices
+            patterns = [all_topic(ronda_id)]  # degraded: Kraal is down, so only whole-kraal notices
         sub = broker.subscribe(patterns)  # 1. subscribe FIRST...
-        backlog = notices_since(
-            conn, patterns, last_event_id or 0
-        )  # 2. ...then read what was missed
+        backlog = notices_since(conn, patterns, last_event_id or 0)  # 2. ...then read what was missed
     finally:
         conn.close()
 
@@ -90,6 +86,4 @@ async def stream(
         finally:
             broker.unsubscribe(sub)  # tab closed: stop delivering to it
 
-    return StreamingResponse(
-        events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
-    )
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})

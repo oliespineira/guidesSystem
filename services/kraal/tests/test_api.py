@@ -67,3 +67,8 @@ def test_seam_endpoints_return_404_for_unknown_ids(client):
     rid = _ronda(client).json()["id"]
     assert client.get("/api/kraal/rondas/999").status_code == 404
     assert client.get(f"/api/kraal/rondas/{rid}/volunteers/999/membership").status_code == 404
+
+
+def test_too_long_label_is_rejected_by_pydantic_not_the_database(client):
+    r = client.post("/api/kraal/rondas", json={"year_label": "x" * 21, "start_date": "2026-09-01"})
+    assert r.status_code == 422
