@@ -1,0 +1,120 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  images:
+    needs: ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service: [kraal, actas]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push the image tagged with the commit SHA
+        uses: docker/build-push-action@v6
+        with:
+          context: services/${{ matrix.service }}
+          push: true
+          provenance: false
+          tags: ghcr.io/${{ github.repository_owner }}/guidessystem-${{ matrix.service }}:${{ github.sha }}
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RG: ${{ vars.RESOURCE_GROUP }}
+      PREFIX: ${{ vars.PREFIX }}
+      UI_STORAGE: ${{ vars.UI_STORAGE }}
+      REGISTRY: ghcr.io/${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Sign in to Azure with OIDC (no stored password)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Remember the images running now, for a rollback
+        id: previous
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          for svc in kraal actas; do
+            echo "$svc=$(az containerapp show -n "$PREFIX-$svc" -g "$RG" --query 'properties.template.containers[0].image' -o tsv)" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Deploy both services (secrets by secretref, configuration as environment variables)
+        env:
+          KRAAL_DB_PASSWORD: ${{ secrets.KRAAL_DB_PASSWORD }}
+          ACTAS_DB_PASSWORD: ${{ secrets.ACTAS_DB_PASSWORD }}
+        run: |
+          SQL_HOST="$PREFIX-sql.database.windows.net"
+          UI_URL=$(az storage account show -n "$UI_STORAGE" -g "$RG" --query primaryEndpoints.web -o tsv)
+          UI_ORIGIN=${UI_URL%/}
+          KRAAL_FQDN=$(az containerapp show -n "$PREFIX-kraal" -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)
+          az containerapp secret set -n "$PREFIX-kraal" -g "$RG" -o none \
+            --secrets "database-url=mssql://kraal_app:${KRAAL_DB_PASSWORD}@${SQL_HOST}:1433/${PREFIX}-kraal-db?encrypt=require"
+          az containerapp secret set -n "$PREFIX-actas" -g "$RG" -o none \
+            --secrets "database-url=mssql://actas_app:${ACTAS_DB_PASSWORD}@${SQL_HOST}:1433/${PREFIX}-actas-db?encrypt=require"
+          az containerapp update -n "$PREFIX-kraal" -g "$RG" -o none \
+            --image "$REGISTRY/guidessystem-kraal:$GITHUB_SHA" \
+            --set-env-vars DATABASE_URL=secretref:database-url UI_ORIGIN="$UI_ORIGIN" GIT_SHA="$GITHUB_SHA"
+          az containerapp update -n "$PREFIX-actas" -g "$RG" -o none \
+            --image "$REGISTRY/guidessystem-actas:$GITHUB_SHA" \
+            --set-env-vars DATABASE_URL=secretref:database-url UI_ORIGIN="$UI_ORIGIN" KRAAL_URL="https://$KRAAL_FQDN" GIT_SHA="$GITHUB_SHA"
+
+      - name: Wait until both services are healthy on this commit (cold start and database resume included)
+        run: |
+          for svc in kraal actas; do
+            fqdn=$(az containerapp show -n "$PREFIX-$svc" -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)
+            for i in $(seq 1 30); do
+              body=$(curl -s --max-time 30 "https://$fqdn/health" || true)
+              if echo "$body" | grep -q '"status":"ok"' && echo "$body" | grep -q "\"version\":\"$GITHUB_SHA\""; then
+                echo "$svc is healthy: $body"; break
+              fi
+              if [ "$i" = 30 ]; then echo "$svc never became healthy on $GITHUB_SHA (last answer: $body)"; exit 1; fi
+              echo "waiting for $svc ($i/30): $body"; sleep 10
+            done
+          done
+
+      - name: Publish the UI with the services' addresses
+        run: |
+          KRAAL_FQDN=$(az containerapp show -n "$PREFIX-kraal" -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)
+          ACTAS_FQDN=$(az containerapp show -n "$PREFIX-actas" -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)
+          printf 'window.CONFIG = {\n  KRAAL_URL: "https://%s",\n  ACTAS_URL: "https://%s",\n};\n' "$KRAAL_FQDN" "$ACTAS_FQDN" > ui/config.js
+          cat ui/config.js
+          az storage blob upload-batch --account-name "$UI_STORAGE" --destination '$web' --source ui --overwrite --auth-mode key -o none
+
+      - name: Roll back to the previous images if the deploy failed
+        if: failure() && steps.previous.outcome == 'success'
+        run: |
+          az containerapp update -n "$PREFIX-kraal" -g "$RG" --image "${{ steps.previous.outputs.kraal }}" -o none
+          az containerapp update -n "$PREFIX-actas" -g "$RG" --image "${{ steps.previous.outputs.actas }}" -o none
+          echo "Rolled back to the previous images."
