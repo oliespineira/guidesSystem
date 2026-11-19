@@ -21,7 +21,7 @@ services:
     migrations: services/kraal/migrations
     env:
       PORT: { default: 8000, description: Port the service listens on }
-      DATABASE_URL: { secret: true, description: Connection string of the kraal database (kraal_app login) }
+      DATABASE_URL: { secret: true, description: "Connection string mssql://user:password@host:1433/database; on Azure add ?encrypt=require" }
       UI_ORIGIN: { default: "http://localhost:8080", description: The only origin allowed by CORS }
       GIT_SHA: { default: local, description: Commit the image was built from, shown by /health }
     calls: []
@@ -37,7 +37,7 @@ services:
     migrations: services/actas/migrations
     env:
       PORT: { default: 8000, description: Port the service listens on }
-      DATABASE_URL: { secret: true, description: Connection string of the actas database (actas_app login) }
+      DATABASE_URL: { secret: true, description: "Connection string mssql://user:password@host:1433/database; on Azure add ?encrypt=require" }
       UI_ORIGIN: { default: "http://localhost:8080", description: The only origin allowed by CORS }
       GIT_SHA: { default: local, description: Commit the image was built from, shown by /health }
       KRAAL_URL: { default: "http://kraal:8000", description: Base URL of the kraal service }

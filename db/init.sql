@@ -14,13 +14,17 @@ GO
 USE kraal;
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'kraal_app')
     CREATE USER kraal_app FOR LOGIN kraal_app;
-ALTER ROLE db_owner ADD MEMBER kraal_app;
+ALTER ROLE db_ddladmin ADD MEMBER kraal_app;
+ALTER ROLE db_datareader ADD MEMBER kraal_app;
+ALTER ROLE db_datawriter ADD MEMBER kraal_app;
 GO
 
 USE actas;
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'actas_app')
     CREATE USER actas_app FOR LOGIN actas_app;
-ALTER ROLE db_owner ADD MEMBER actas_app;
+ALTER ROLE db_ddladmin ADD MEMBER actas_app;
+ALTER ROLE db_datareader ADD MEMBER actas_app;
+ALTER ROLE db_datawriter ADD MEMBER actas_app;
 GO
 
 
@@ -34,11 +38,16 @@ GO
 USE kraal_test;
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'kraal_app')
     CREATE USER kraal_app FOR LOGIN kraal_app;
-ALTER ROLE db_owner ADD MEMBER kraal_app;
+ALTER ROLE db_owner ADD MEMBER kraal_app
+ALTER ROLE db_ddladmin ADD MEMBER kraal_app;
+ALTER ROLE db_datareader ADD MEMBER kraal_app;
+ALTER ROLE db_datawriter ADD MEMBER kraal_app;
 GO
 
 USE actas_test;
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'actas_app')
     CREATE USER actas_app FOR LOGIN actas_app;
-ALTER ROLE db_owner ADD MEMBER actas_app;
+ALTER ROLE db_ddladmin ADD MEMBER actas_app;
+ALTER ROLE db_datareader ADD MEMBER actas_app;
+ALTER ROLE db_datawriter ADD MEMBER actas_app;
 GO

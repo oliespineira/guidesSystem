@@ -347,22 +347,36 @@ function apiBase(path) {
   return path.startsWith("/api/kraal") ? window.CONFIG.KRAAL_URL : window.CONFIG.ACTAS_URL;
 }
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 async function api(path, body) {
   const opts = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
-  let res;
-  try {
-    res = await fetch(apiBase(path) + path, opts);
-  } catch {
-    // No response at all: the service is stopped or unreachable (the browser only says "Failed to fetch").
-    const service = path.startsWith("/api/kraal") ? "Kraal" : "Actas";
-    throw new Error(`El servicio ${service} no está disponible; inténtalo de nuevo`);
+  const service = path.startsWith("/api/kraal") ? "Kraal" : "Actas";
+  for (let attempt = 0; ; attempt++) {
+    let res;
+    try {
+      res = await fetch(apiBase(path) + path, opts);
+    } catch {
+      // No response at all: the service is stopped or unreachable (the browser only says "Failed to fetch").
+      throw new Error(`El servicio ${service} no está disponible; inténtalo de nuevo`);
+    }
+    const data = await res.json().catch(() => ({}));
+    // Cold start on Azure: while a service scaled to zero is starting, Azure itself answers 503
+    // ("App port is not ready"). Our services always send {"detail": ...}, so a 503 without it is Azure's.
+    if (res.status === 503 && data.detail === undefined) {
+      if (attempt < 2) {
+        toast(`El servicio ${service} está arrancando…`);
+        await sleep(5000);
+        continue;
+      }
+      throw new Error(`El servicio ${service} está arrancando; inténtalo de nuevo en un minuto`);
+    }
+    if (!res.ok) {
+      const d = data.detail;
+      throw new Error(typeof d === "string" ? d : Array.isArray(d) ? d.map(x => x.msg).join("; ") : res.statusText);
+    }
+    return data;
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const d = data.detail;
-    throw new Error(typeof d === "string" ? d : Array.isArray(d) ? d.map(x => x.msg).join("; ") : res.statusText);
-  }
-  return data;
 }
 
 function toast(text, kind) {

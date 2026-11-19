@@ -1,6 +1,6 @@
 import os
 import time
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 import pymssql
 
@@ -79,8 +79,9 @@ class Connection:
 
 
 def _connect_args() -> dict:
-    url = urlparse(os.environ["DATABASE_URL"])  # mssql://user:password@host:port/database
-    return {
+    # mssql://user:password@host:port/database, plus ?encrypt=require for Azure SQL (encrypted connections only)
+    url = urlparse(os.environ["DATABASE_URL"])
+    args = {
         "server": url.hostname,
         "port": url.port or 1433,
         "user": unquote(url.username or ""),
@@ -88,6 +89,10 @@ def _connect_args() -> dict:
         "database": url.path.lstrip("/"),
         "login_timeout": 10,
     }
+    encrypt = parse_qs(url.query).get("encrypt")
+    if encrypt:
+        args["encryption"] = encrypt[0]
+    return args
 
 
 def get_connection(attempts: int = 3) -> Connection:
