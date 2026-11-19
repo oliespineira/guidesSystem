@@ -4,7 +4,7 @@ An app for the Asociación Guías de Torrelodones (AGT): who is in the kraal eac
 
 Assignment 1 built it as one FastAPI process with one SQLite file. Assignment 2 splits it into **two services, each with its own SQL Server database**, run locally with Docker Compose and deployed to Azure by a GitHub Actions pipeline.
 
-**Live URL:** _added after the first deployment_
+**Live URL:** https://oespineiraieu2024ui.z1.web.core.windows.net (the first request after a quiet period can take up to a minute: the services and the database start on demand)
 
 ## Architecture
 
@@ -121,24 +121,76 @@ python -c "import json; from app.main import app; open('openapi.json','w',encodi
 
 ## CI/CD
 
-`.github/workflows/ci-cd.yml` runs on every push and pull request:
+Two workflows in `.github/workflows/`:
 
-- **test** (once per service): ruff lint, tests on a SQL Server container with a 70% coverage gate, and a build of the Docker image.
-- **validate**: `system.yaml` against `system.schema.json`, and both OpenAPI documents against the OpenAPI specification.
-- **integration**: starts the whole system with compose and runs the cross-seam tests.
+- **`ci.yml`** runs on every pull request and on pushes to every branch except `main`:
+  - **test** (once per service): ruff lint, the tests on a SQL Server container with a 70% coverage gate, and a build of the Docker image;
+  - **validate**: `system.yaml` against `system.schema.json`, and both OpenAPI documents against the OpenAPI specification;
+  - **integration**: starts the whole system with compose and runs the cross-seam tests.
+- **`cd.yml`** runs on pushes to `main` (that is, after a pull request is merged):
+  1. calls `ci.yml`, so nothing is deployed unless CI passed on the same commit;
+  2. builds each image and pushes it to GHCR, tagged with the commit SHA (`ghcr.io/oliespineira/guidessystem-<service>:<sha>`);
+  3. signs in to Azure with OIDC (no stored Azure password), sets the connection strings as Container Apps secrets and deploys both images, with `GIT_SHA` as an environment variable;
+  4. waits up to 5 minutes until both `/health` endpoints answer `"status":"ok"` with this commit's SHA;
+  5. writes `ui/config.js` with the services' addresses and uploads `ui/` to the storage static website;
+  6. if any step fails, puts the previous images back.
 
-Changes reach `main` only through pull requests, and branch protection requires all checks to pass.
-
-_Deployment (CD) to Azure: added with the first deployment._
+Changes reach `main` only through pull requests, and branch protection requires the CI checks to pass.
 
 ## Azure deployment and initial setup
 
-_Added with the first deployment: the resources, how the initial setup is reproduced step by step, and how each push to `main` is deployed._
+Following the A2 deployment guide, the system runs in my own Azure for Students subscription:
 
+| Resource | Name |
+|---|---|
+| Resource group | `rg-oespineira-ieu2024` (swedencentral) |
+| UI (Storage static website) | `oespineiraieu2024ui` |
+| Container Apps environment | `oespineira-ieu2024-env` |
+| Container Apps (0 to 1 replicas) | `oespineira-ieu2024-kraal`, `oespineira-ieu2024-actas` |
+| SQL server | `oespineira-ieu2024-sql` |
+| Serverless databases (free offer) | `oespineira-ieu2024-kraal-db`, `oespineira-ieu2024-actas-db` |
+| Pipeline identity (OIDC) | `oespineira-ieu2024-github`, Contributor on the resource group only |
+
+### Reproducing the initial setup
+
+Every command is in **`infra/setup.sh`**, in the order of the guide's steps 2–7 and 9. It needs `az`, `gh` and Docker (for `sqlcmd`), and must be run in **bash**, not zsh (zsh changes `:r` in the OIDC subject).
+
+1. Activate Azure for Students and select it: `az login`, then `az account set --subscription <id>`.
+2. List the regions your subscription allows, and use one of them (the SQL free offer is not available in spaincentral):
+   `az policy assignment list --query "[].{name:displayName, regions:parameters.listOfAllowedLocations.value}" -o json`
+3. In bash, type the three passwords without showing them, and keep them in a password manager:
+   `read -s SQL_ADMIN_PASSWORD; read -s KRAAL_DB_PASSWORD; read -s ACTAS_DB_PASSWORD`
+4. Run `infra/setup.sh` step by step, checking each result before the next.
+
+After the setup, only the pipeline changes anything.
+
+### Logs
+
+```bash
+az containerapp logs show --name oespineira-ieu2024-actas --resource-group rg-oespineira-ieu2024 --follow
+```
+
+(add `--type system` for start-up and probe events).
+
+### Rollback
+
+CD rolls back automatically when the new version doesn't become healthy. To go back to an earlier version by hand, deploy its image by commit SHA:
+
+```bash
+az containerapp update --name oespineira-ieu2024-kraal --resource-group rg-oespineira-ieu2024 \
+  --image ghcr.io/oliespineira/guidessystem-kraal:<earlier-sha>
+```
 ## Secrets
 
-Secrets are never committed: not in code, workflows, compose or history. Locally they live in a git-ignored `.env`; on Azure they will be GitHub Actions secrets, passed to the Container Apps as secrets.
+Secrets are never committed: not in code, workflows, compose or history.
 
+- **Locally:** a git-ignored `.env` (optional; compose has dev-only defaults that are never used on Azure).
+- **GitHub Actions secrets:** `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `KRAAL_DB_PASSWORD`, `ACTAS_DB_PASSWORD`. Variables: `PREFIX`, `RESOURCE_GROUP`, `UI_STORAGE`.
+- **On Azure:** each database connection string is a Container Apps secret, passed to the app by `secretref`, never as a plain environment variable. The pipeline signs in with OIDC, so no Azure password is stored at all.
+
+**If a secret is ever pushed,** within 24 hours: change it (for a database user: `ALTER USER ... WITH PASSWORD` as the server admin, then update the GitHub secret and redeploy), remove it from the code, and record it below.
+
+**Incidents:** none.
 **If a secret is ever pushed,** within 24 hours: revoke or rotate it (or, for the class service principal, notify the professor), remove it from the code, and record it below.
 
 **Incidents:** none.
