@@ -1,8 +1,10 @@
-name: CI/CD
+name: CI
 
 on:
   push:
+    branches-ignore: [main]
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read

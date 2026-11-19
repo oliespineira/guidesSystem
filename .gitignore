@@ -6,3 +6,4 @@ data/
 .pytest_cache/
 .env
 coverage.txt
+evidence/
