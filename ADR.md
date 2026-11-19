@@ -184,9 +184,113 @@ SQL Server's default collation is case-insensitive, so UNIQUE (ronda_id, role_na
 
 Recovery plan for a bad migration: because each migration runs in a transaction, a migration that fails leaves the database unchanged, and the service does not start, so the post-deploy health check fails. I fix it with a new corrective migration, never by editing the applied one. If a migration succeeds but damages data, I restore the database from Azure SQL's automatic point-in-time backup into a new database and point DATABASE_URL at it.
 
+## ADR-8: Serverless hosting on Azure
+
+**Date:** 2026-11-19
+**Status:** Accepted
+
+### Context
+Assignment 2 requires deploying both services and the UI to Azure on resources billed per use, scaling to zero when idle, with the deployment done only by the pipeline. On 17 November the professor moved Assignment 2 to each student's own Azure for Students subscription and published an A2 deployment guide, which changes several details of section 7 of the assignment (listed under "Deviations" below).
+
+### Decision
+**Resources**, all in my own resource group rg-oespineira-ieu2024, in swedencentral (one of the five regions my subscription's policy allows; spaincentral does not have the SQL free offer):
+- a Storage account (oespineiraieu2024ui) serving the UI as a static website. Its address is the system's public URL and the only origin CORS accepts;
+- a Container Apps environment (Consumption) with one Container App per service, external HTTPS ingress, 0 to 1 replicas, 0.25 vCPU and 0.5 GiB;
+- one logical SQL server with two serverless databases on the free offer (0.5 to 1 vCore, 32 GB, locally redundant backups, auto-pause after 60 minutes), each with one contained user that has only db_ddladmin, db_datareader and db_datawriter;
+- a user-assigned managed identity for the pipeline, with Contributor on this resource group only, trusted through OIDC for pushes to main. No Azure password is stored anywhere;
+- images on GHCR, tagged with the commit SHA.
+Every setup command is in infra/setup.sh. After the setup, only the pipeline changes anything.
+- the GHCR packages are public (they inherited the public repository's visibility), so Container Apps pull the images without registry credentials. The guide's expected first-deploy failure ("Authentication failed when pulling container image") did not happen.
+
+**Cost model.** Container Apps on Consumption bill per second while a replica runs, and nothing at zero replicas. The databases use the free offer, and auto-pause when idle. The storage account costs cents. An idle system uses almost none of the credit.
+
+**Scale to zero and cold starts.** After a period without requests, Container Apps stops the replica, and after 60 minutes without connections the database pauses. The first request after that has to start the container and may find the database resuming, which takes up to about a minute, with connections failing meanwhile (error 40613; I saw it while creating the users). So:
+- at startup, wait_for_db retries with backoff for up to 90 seconds, then runs the migrations;
+- every request's connection retries a few times with backoff;
+- while the container starts, Azure answers 503 "App port is not ready"; the UI recognises that 503 (it has no detail field) and shows "El servicio está arrancando", retrying twice;
+- the CD health check waits up to five minutes per service.
+
+**Migrations at startup, with one replica.** Each service runs its migrations when it starts. Max replicas is 1, so two copies can never run the same migration at the same time.
+
+**Load balancing, routing, DNS, TLS and firewalls.** I did not build these myself, because the assignment rules out VMs and a third container. Azure provides them: the Container Apps ingress terminates HTTPS and routes each request to a healthy replica (with one replica it has a single target, but it would balance across many); each app gets a DNS name in the environment's domain (politeforest-d654a89b.swedencentral.azurecontainerapps.io); the SQL firewall only allows Azure services, plus my own IP while I set up the users. CORS is set in the services' code (as the guide says), and only protects against browsers, not other clients.
+
+**Deployment strategy.** Each deploy updates the Container App to the new image, which creates a new revision that replaces the old one. The pipeline only passes if both /health endpoints report the new commit; if not, it puts the previous images back (an automatic rollback). Because the old revision can still run for a moment after the new one has migrated the database, every migration must stay backward-compatible with the previous code.
+
+**Public without login.** The live system is public and has no authentication, which ADR-5 said should come before going beyond a trusted network. I accept this because it only holds demo data. Real data would need authentication first (see ADR-10 for what was not built).
+
+**Deviations from the assignment text** (following the A2 deployment guide and the announcement of 17 November): my own resource group instead of rg-sdd-3a; a managed identity with OIDC instead of the class service principal; a Storage static website instead of a Static Web App; the SQL free offer (60-minute auto-pause, 32 GB) instead of the shortest auto-pause and 2 GB.
+
+### Alternatives considered
+- A Static Web App for the UI (the assignment text): replaced by the guide's Storage static website.
+- A service principal with a stored secret: IE accounts cannot create one, and OIDC stores no secret that could leak.
+- Terraform instead of an az CLI script: credited as IaC, but the guide asks for the commands in the README, and on deployment day the CLI was the lower-risk way to get the migration evidence on time.
+- A Log Analytics workspace for the logs: an extra resource billed per GB. I read the logs with az containerapp logs show instead.
+- Blue/green or canary releases with two active revisions and traffic splitting: they would need two replicas running against the same database, against the one-replica rule, and migrations compatible with both versions at once. The automatic rollback gives a safe way back without them.
+- Ansible to configure servers: there are no servers to configure; the containers are built from Dockerfiles.
+
+### Consequences
+The first request after an idle period is slow (up to about a minute when the database is also paused). That is accepted by the assignment, and the UI shows a clear message.
+
+The live notices stream is an open HTTP connection, so while any browser tab has it open, the actas replica cannot scale to zero, and costs credit. The hostel reminder loop only runs while the actas replica is awake, so reminders are best effort.
+
+The in-memory broker only works because there is exactly one actas replica.
+
+At 100x traffic, I would need: more replicas behind the ingress, which needs an external broker for the notices (or polling) and sticky sessions or polling for the stream; the migrations as a separate pipeline step, not at startup, so several replicas don't race; connection pooling; a provisioned database instead of serverless, to avoid pauses; and a scheduled job for the reminders.
+
+ADR-5 is superseded by this ADR.
+
+## ADR-9: Pipelining and Testing
+
+**Date:** 2026-11-17
+**Status:** Accepted
 
 
-## ADR-9
+### Context
+In the first assignment the tests ran on an in-memory SQLite database (ADR-4). Assignment 2 requires CI on every push and pull request: lint, unit tests per service, at least 70% coverage per service, validation of system.yaml and the OpenAPI documents and a build of every image. The tests must run against a SQL Server container, never Azure SQL and at least one integration test must cross the seam between the two services.
+
+### Decision
+**One workflow** (.github/workflows/ci-cd.yml) this runw on every push and pull request, with three jobs:
+- **test**, once per service: ruff lint and format check, the tests on SQL Server with a coverage gate that fails under 70% and a docker build of the image.
+- **validate**: system.yaml against system.schema.json, and both openapi.json files against the OpenAPI specification.
+- **integration**: only after both test jobs pass. It starts the whole system with docker compose and runs the communication seam tests against the real services.
+
+Every job has a time limit. The actions and the tools are pinned to a version, so runs are reproducible. main is protected: changes arrive only through pull requests and all four checks must pass before merging.
+
+**Tests run on SQL Server, not SQLite.** CI starts SQL Server with the same docker-compose.yml and db/init.sql I use locally. The tests use separate databases (kraal_test, actas_test) and refuse to run unless the name ends in _test, because they empty every table before each test. The migrations run once per test session, so every run also proves them. The passwords in CI are the dev-only defaults from docker-compose.yml, for a container that only lives a few minutes on GitHub's runner, so they are not secrets.
+
+**How the cross-seam tests work, at three levels:**
+
+1. Unit tests with a fake kraal:
+   - actas tests don't call the real kraal: a FakeKraal in conftest.py replaces _kraal_get with monkeypatch
+   - the fake has the same method names as kraal's service (create_ronda, add_volunteer...), so the tests barely changed
+   - it returns the same shapes as the real kraal endpoints (I fixed /roles to include volunteer_name to match)
+   - autouse=True: every actas test gets the fake automatically, so no test can make a real network call by accident (this happened: a test without the fake tried to reach http://kraal:8000)
+   - kraal.down = True simulates kraal being unavailable: test_kraal_down_writes_fail_with_503_but_reads_still_work
+2. The real HTTP code: test_seam.py tests the real _kraal_get with only httpx.get replaced: it uses KRAAL_URL and KRAAL_TIMEOUT_S, a 404 stays a 404, and a timeout, a refused connection or a 500 become a 503.
+3. The real system: the integration job starts everything with compose. One test creates kraal data over HTTP and checks that actas builds the right notice topics from it, which only works if actas really called kraal. The other stops the kraal container and checks that actas's /health stays 200, the cross-seam flow returns the 503 message, and actas's own data still reads.
+
+Each service also has a test that fails if its committed openapi.json no longer matches the code.
+
+### Alternatives considered
+- Keeping SQLite for the tests: faster, but it hid real differences. Testing on SQL Server found three bugs: pymssql's lastrowid returning another table's id, a GROUP BY that SQL Server rejects, and a too-long value giving a 500 instead of a clear error.
+- A GitHub Actions service container for SQL Server: it works, but then CI would set up the database differently from my laptop. Reusing docker-compose.yml means one setup, tested everywhere.
+- Only the fake, or only the compose stack: the fake is fast but never tests real HTTP or the containers; the compose stack is realistic but slower and cannot easily simulate a timeout. I use both.
+
+### Consequences
+Running the tests now needs Docker, and each test job takes about a minute in CI. Coverage is 92% for kraal and 94% for actas.
+
+The fake has to stay in step with kraal's real API. If they drift apart, the unit tests could still pass, but the integration job would fail, so the mismatch is caught before merging.
+
+The schema used for system.yaml is a stand-in written from section 8a, because the provided one was not available.
+
+**Deliberately not tested:**
+- Azure-specific behaviour (cold starts, the database resuming from pause, real secrets and ingress): the post-deploy health check covers these after each deployment.
+- The browser UI: checked by hand, including the banner when kraal is down.
+- The live notice stream over a real browser connection: the broker, topics and backlog are unit-tested.
+- The reminder loop's timing: send_reminders is tested with an injected date, but not the hourly loop.
+- Load and performance.
+
+ADR-4 is superseded by this ADR.
 
 To keep actas working when kraal is down, I separated two kinds of ronda checks. Writes (creating a meeting, a calendar event, a budget or a notice) use a strict check: if kraal does not answer, they fail with a 503, because saving a ronda_id that might not exist would store bad data. Reads (listing meetings, the calendar, budgets, requests and bookings) use a best-effort check: they check the ronda when kraal answers, but if kraal is down they still return actas's own data, because a read cannot corrupt anything. treasury_info stays strict even though it is a read, because its whole answer (who the treasurer is) comes from kraal.
 
