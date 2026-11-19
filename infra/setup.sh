@@ -50,3 +50,52 @@ $SQLCMD -S "$PREFIX-sql.database.windows.net" -d "$PREFIX-kraal-db" -U sqladmin 
 $SQLCMD -S "$PREFIX-sql.database.windows.net" -d "$PREFIX-actas-db" -U sqladmin -P "$SQL_ADMIN_PASSWORD" -l 60 -b \
   -i /infra/create-user.sql -v APP_USER=actas_app APP_PASSWORD="$ACTAS_DB_PASSWORD"
 az sql server firewall-rule delete --resource-group "$RG" --server "$PREFIX-sql" --name MyLaptop
+
+# Step 5: Container Apps environment and one Container App per service.
+# Placeholder image until the first deploy; scale 0..1; the connection string is a secret, passed by secretref.
+# No Log Analytics workspace: logs are read with `az containerapp logs show`.
+az containerapp env create --name "$PREFIX-env" --resource-group "$RG" --location "$LOCATION" --logs-destination none
+az containerapp create --name "$PREFIX-kraal" --resource-group "$RG" --environment "$PREFIX-env" \
+  --image mcr.microsoft.com/k8se/quickstart:latest --ingress external --target-port 8000 \
+  --min-replicas 0 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
+  --secrets "database-url=mssql://kraal_app:${KRAAL_DB_PASSWORD}@${PREFIX}-sql.database.windows.net:1433/${PREFIX}-kraal-db?encrypt=require" \
+  --env-vars DATABASE_URL=secretref:database-url UI_ORIGIN="$UI_ORIGIN"
+KRAAL_FQDN=$(az containerapp show --name "$PREFIX-kraal" --resource-group "$RG" --query properties.configuration.ingress.fqdn -o tsv)
+az containerapp create --name "$PREFIX-actas" --resource-group "$RG" --environment "$PREFIX-env" \
+  --image mcr.microsoft.com/k8se/quickstart:latest --ingress external --target-port 8000 \
+  --min-replicas 0 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
+  --secrets "database-url=mssql://actas_app:${ACTAS_DB_PASSWORD}@${PREFIX}-sql.database.windows.net:1433/${PREFIX}-actas-db?encrypt=require" \
+  --env-vars DATABASE_URL=secretref:database-url UI_ORIGIN="$UI_ORIGIN" KRAAL_URL="https://$KRAAL_FQDN"
+
+# Step 6: the pipeline's identity: a user-assigned managed identity with Contributor on this resource group only,
+# trusted through OIDC for pushes to main (both subject formats GitHub may send). Run in bash, not zsh.
+az identity create --name "$PREFIX-github" --resource-group "$RG" --location "$LOCATION"
+CLIENT_ID=$(az identity show --name "$PREFIX-github" --resource-group "$RG" --query clientId -o tsv)
+PRINCIPAL_ID=$(az identity show --name "$PREFIX-github" --resource-group "$RG" --query principalId -o tsv)
+RG_ID=$(az group show --name "$RG" --query id -o tsv)
+az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
+  --role Contributor --scope "$RG_ID"
+az identity federated-credential create --name github-main --identity-name "$PREFIX-github" --resource-group "$RG" \
+  --issuer https://token.actions.githubusercontent.com --subject "repo:${GH_REPO}:ref:refs/heads/main" \
+  --audiences api://AzureADTokenExchange
+OWNER_ID=$(gh api "repos/${GH_REPO}" --jq .owner.id)
+REPO_ID=$(gh api "repos/${GH_REPO}" --jq .id)
+az identity federated-credential create --name github-main-ids --identity-name "$PREFIX-github" --resource-group "$RG" \
+  --issuer https://token.actions.githubusercontent.com \
+  --subject "repo:${GH_REPO%/*}@${OWNER_ID}/${GH_REPO#*/}@${REPO_ID}:ref:refs/heads/main" \
+  --audiences api://AzureADTokenExchange
+
+# Step 7: GitHub secrets and variables (values go straight to GitHub, never into a file)
+gh secret set AZURE_CLIENT_ID --repo "$GH_REPO" --body "$CLIENT_ID"
+gh secret set AZURE_TENANT_ID --repo "$GH_REPO" --body "$(az account show --query tenantId -o tsv)"
+gh secret set AZURE_SUBSCRIPTION_ID --repo "$GH_REPO" --body "$(az account show --query id -o tsv)"
+gh secret set KRAAL_DB_PASSWORD --repo "$GH_REPO" --body "$KRAAL_DB_PASSWORD"
+gh secret set ACTAS_DB_PASSWORD --repo "$GH_REPO" --body "$ACTAS_DB_PASSWORD"
+gh variable set PREFIX --repo "$GH_REPO" --body "$PREFIX"
+gh variable set RESOURCE_GROUP --repo "$GH_REPO" --body "$RG"
+gh variable set UI_STORAGE --repo "$GH_REPO" --body "$STORAGE"
+
+# Step 9: Reader on the resource group for the professors, so they can check the deployment
+for p in amartini@faculty.ie.edu bserra@faculty.ie.edu; do
+  az role assignment create --assignee "$p" --role Reader --scope "$RG_ID"
+done
