@@ -1,0 +1,86 @@
+name: CI/CD
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.service }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: kraal
+            test_db_url: mssql://kraal_app:LocalDev_Kraal_2026@localhost:1433/kraal_test
+          - service: actas
+            test_db_url: mssql://actas_app:LocalDev_Actas_2026@localhost:1433/actas_test
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -r services/${{ matrix.service }}/requirements-dev.txt
+
+      - name: Lint
+        run: |
+          ruff check services/${{ matrix.service }}
+          ruff format --check services/${{ matrix.service }}
+
+      - name: Start SQL Server and create the test databases
+        run: |
+          docker compose up -d --wait sqlserver
+          docker compose run --rm db-init
+
+      - name: Test with coverage (fails under 70%)
+        working-directory: services/${{ matrix.service }}
+        env:
+          TEST_DATABASE_URL: ${{ matrix.test_db_url }}
+        run: python -m pytest -q --cov=app --cov-report=term-missing --cov-fail-under=70
+
+      - name: Build the image
+        run: docker build -t ${{ matrix.service }}:ci services/${{ matrix.service }}
+
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install validators
+        run: pip install check-jsonschema==0.39.0 openapi-spec-validator==0.9.0
+      - name: system.yaml against system.schema.json
+        run: check-jsonschema --schemafile system.schema.json system.yaml
+      - name: OpenAPI documents against the OpenAPI specification
+        run: |
+          openapi-spec-validator services/kraal/openapi.json
+          openapi-spec-validator services/actas/openapi.json
+
+  integration:
+    needs: [test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install httpx==0.28.1 pytest==9.1.1
+      - name: Start the whole system with compose
+        run: docker compose up -d --build
+      - name: Cross-seam tests against the real services
+        run: python -m pytest -q integration
+      - name: Show service logs if anything failed
+        if: failure()
+        run: docker compose logs kraal actas
