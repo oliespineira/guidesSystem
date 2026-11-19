@@ -34,11 +34,7 @@ def notice_topic(ronda_id: int, audience: str, target: str | None = None) -> str
         raise InvalidInputError(f"audience must be one of {', '.join(AUDIENCES)}")
     if not target or not slug(target):
         raise InvalidInputError(f"A {audience} notice needs a target name")
-    return (
-        rama_topic(ronda_id, target)
-        if audience == "rama"
-        else role_topic(ronda_id, target)
-    )
+    return rama_topic(ronda_id, target) if audience == "rama" else role_topic(ronda_id, target)
 
 
 def matches(pattern: str, topic: str) -> bool:

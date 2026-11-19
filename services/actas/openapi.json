@@ -2502,6 +2502,7 @@
         "properties": {
           "section_title": {
             "type": "string",
+            "maxLength": 200,
             "minLength": 1,
             "title": "Section Title"
           },
@@ -2538,6 +2539,7 @@
         "properties": {
           "venue": {
             "type": "string",
+            "maxLength": 200,
             "minLength": 1,
             "title": "Venue"
           },
@@ -2584,6 +2586,7 @@
           },
           "category": {
             "type": "string",
+            "maxLength": 100,
             "minLength": 1,
             "title": "Category"
           },
@@ -2613,6 +2616,7 @@
           },
           "activity_type": {
             "type": "string",
+            "maxLength": 100,
             "minLength": 1,
             "title": "Activity Type"
           },
@@ -2631,7 +2635,8 @@
           "assigned_volunteers": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 1000
               },
               {
                 "type": "null"
@@ -2652,13 +2657,15 @@
         "properties": {
           "description": {
             "type": "string",
+            "maxLength": 1000,
             "minLength": 1,
             "title": "Description"
           },
           "vote_result": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               {
                 "type": "null"
@@ -2735,6 +2742,7 @@
           },
           "title": {
             "type": "string",
+            "maxLength": 200,
             "minLength": 1,
             "title": "Title"
           }
@@ -2761,7 +2769,8 @@
           "target": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
@@ -2771,6 +2780,7 @@
           },
           "title": {
             "type": "string",
+            "maxLength": 200,
             "minLength": 1,
             "title": "Title"
           },
@@ -2802,7 +2812,8 @@
           "note": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 1000
               },
               {
                 "type": "null"
@@ -2821,11 +2832,13 @@
         "properties": {
           "rama": {
             "type": "string",
+            "maxLength": 100,
             "minLength": 1,
             "title": "Rama"
           },
           "item": {
             "type": "string",
+            "maxLength": 200,
             "minLength": 1,
             "title": "Item"
           },
@@ -2851,7 +2864,8 @@
           "note": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 1000
               },
               {
                 "type": "null"
@@ -2861,6 +2875,7 @@
           },
           "payment_ref": {
             "type": "string",
+            "maxLength": 100,
             "minLength": 1,
             "title": "Payment Ref"
           }
