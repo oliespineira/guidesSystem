@@ -126,3 +126,12 @@ def test_membership_unknown_volunteer_is_not_found(conn):
     ronda = service.create_ronda(conn, "2026", "2026-09-01")
     with pytest.raises(NotFoundError):
         service.volunteer_membership(conn, ronda, 999)
+
+
+def test_role_names_that_differ_only_by_accents_or_capitals_are_the_same_role(conn):
+    ronda = service.create_ronda(conn, "2026", "2026-09-01")
+    ana = service.add_volunteer(conn, "Ana")
+    ben = service.add_volunteer(conn, "Ben")
+    service.assign_role(conn, ronda, ana, "Tesorería")
+    with pytest.raises(ConflictError):
+        service.assign_role(conn, ronda, ben, "tesoreria")

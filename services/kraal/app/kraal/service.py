@@ -56,10 +56,16 @@ def assign_role(conn: Connection, ronda_id: int, volunteer_id: int, role_name: s
     ).fetchone()
     if existing is not None:
         raise DuplicateRoleError(f"Role '{role_name}' is already assigned for this ronda")
-    cur = conn.execute(
-        "INSERT INTO roles (ronda_id, volunteer_id, role_name) VALUES (?, ?, ?)",
-        (ronda_id, volunteer_id, role_name),
-    )
+    try:
+        cur = conn.execute(
+            "INSERT INTO roles (ronda_id, volunteer_id, role_name) VALUES (?, ?, ?)",
+            (ronda_id, volunteer_id, role_name),
+        )
+    except IntegrityError:
+        # The unique index from migration 002 also treats "Tesorería" and "tesoreria" as the same role,
+        # and catches two requests that both passed the check above at the same moment.
+        conn.rollback()
+        raise DuplicateRoleError(f"Role '{role_name}' is already assigned for this ronda") from None
     conn.commit()
     return cur.lastrowid
 
