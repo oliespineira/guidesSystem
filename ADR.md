@@ -184,6 +184,14 @@ SQL Server's default collation is case-insensitive, so UNIQUE (ronda_id, role_na
 
 Recovery plan for a bad migration: because each migration runs in a transaction, a migration that fails leaves the database unchanged, and the service does not start, so the post-deploy health check fails. I fix it with a new corrective migration, never by editing the applied one. If a migration succeeds but damages data, I restore the database from Azure SQL's automatic point-in-time backup into a new database and point DATABASE_URL at it.
 
+### Update (27 Nov 2026): migration 002_role_key in production
+002_role_key adds role_key to roles, the role name compared without accents or capitals (a computed, persisted column with COLLATE Latin1_General_CI_AI), and a unique index on (ronda_id, role_key). It changes a table that already holds data: SQL Server fills role_key in for the existing rows, and the previous code keeps working because it never writes the column. CD applied it on Azure on 27 Nov at 18:37; the same three roles were there before and after, now with role_key filled in. It fixes the accent half of review defect 2.
+
+Testing it found three things, all fixed before it reached Azure:
+- an empty migration file was recorded as applied without doing anything; the runner now refuses empty files (with a test);
+- when existing rows already break the new rule, the index fails, the whole migration rolls back and the service does not start, which is the recovery plan above working as designed;
+- assign_role let the database's refusal escape as a 500 (review defect 4); it now becomes a 409. The Python check stays for the common case, but the database is the final judge.
+
 ## ADR-8: Serverless hosting on Azure
 
 **Date:** 2026-11-19
@@ -239,6 +247,11 @@ At 100x traffic, I would need: more replicas behind the ingress, which needs an 
 
 ADR-5 is superseded by this ADR.
 
+
+### Update (27 Nov 2026): base image, logs and firewall
+- **Base image.** Alpine was mentioned in class. I kept a minimal Debian image (python:3.12-slim-trixie), because pymssql's prebuilt wheels need glibc, which Alpine (musl) does not have. The image is pinned by digest, Debian's security updates are installed at build time (a trade-off: the base is exact, the patches are current), and the app runs as a system user with no home and no login.
+- **Logs.** Without Log Analytics, logs only live as long as the replica that wrote them. The replica that applied migration 002 had scaled to zero before I read its logs, so the evidence for it is the schema_migrations row and the later "No pending migrations" line.
+- **Firewall.** "Allow Azure services" lets in any Azure service, not only my two apps. A private endpoint would be stricter, but it is outside the resource allowance; the contained users' passwords and encrypted connections are the second layer. My own IP is only allowed while I run sqlcmd, then the rule is deleted.
 ## ADR-9: Pipelining and Testing
 
 **Date:** 2026-11-17
@@ -304,3 +317,13 @@ The seam kept the same function names and parameters as in the first assignment,
 - autouse=True: every actas test gets the fake automatically, so no test can make a real network call by accident (this happened: a test without the fake tried to reach http://kraal:8000)
 - kraal.down = True simulates kraal being unavailable: test_kraal_down_writes_fail_with_503_but_reads_still_work
 - what the fake doesn't test: the real HTTP call in _kraal_get (timeouts, real 404s) → integration test on Friday
+
+### Update (27 Nov 2026): security checks in the pipeline
+Following the DevSecOps session, the pipeline now checks security on every change:
+- **SAST:** Semgrep (p/python, p/security-audit, p/owasp-top-ten) on both services' code, in its own job, failing on any finding. The first scan found nothing, because the queries pass values as parameters.
+- **SCA:** pip-audit on each service's pinned packages, and Trivy on each built image, failing on HIGH or CRITICAL vulnerabilities that have a fix (an unfixable one would block every build without anything I could do). Trivy found libzstd1 (CVE-2026-124851) in the Debian base; installing Debian's updates in the Dockerfile fixed it. Dependabot opens pull requests for newer pip packages, base images and actions.
+- **DAST:** an OWASP ZAP baseline scan (passive) of the live UI and both APIs after every deploy. It reports but does not fail the run: there is no staging environment to scan before production (the allowance has no room for one), and the storage static website cannot set custom security headers. The reports are saved with each run.
+- **Supply chain:** every GitHub action is pinned to a commit SHA, because a tag can be moved (the tj-actions incident).
+- **Secrets:** GitHub secret scanning and push protection are on.
+
+Not covered: authentication tests (there is no login, see ADR-10), an active ZAP scan, and signed images or an SBOM.
