@@ -137,6 +137,7 @@ Two workflows in `.github/workflows/`:
 
 Changes reach `main` only through pull requests, and branch protection requires the CI checks to pass.
 
+**Security checks:** Semgrep (SAST) on the code; pip-audit on the Python packages and Trivy on each image (SCA, failing on HIGH/CRITICAL with a fix); OWASP ZAP baseline scan of the live system after each deploy (DAST, report-only, reports saved as run artifacts). Every action is pinned to a commit SHA, and Dependabot proposes updates weekly.
 ## Azure deployment and initial setup
 
 Following the A2 deployment guide, the system runs in my own Azure for Students subscription:
