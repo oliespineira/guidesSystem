@@ -32,8 +32,12 @@ def run_migrations(conn: Connection) -> None:
         print("No pending migrations", flush=True)
         return
     for path in pending:
+        batches = _batches(path.read_text(encoding="utf-8"))
+        if not batches:
+            # An empty file must never be recorded as applied: it would block the real migration forever.
+            raise RuntimeError(f"Migration {path.name} is empty")
         try:
-            for batch in _batches(path.read_text(encoding="utf-8")):
+            for batch in batches:
                 conn.execute(batch)
             conn.execute("INSERT INTO schema_migrations (version) VALUES (?)", (path.stem,))
             conn.commit()
