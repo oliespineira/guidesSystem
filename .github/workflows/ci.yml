@@ -23,9 +23,9 @@ jobs:
           - service: actas
             test_db_url: mssql://actas_app:LocalDev_Actas_2026@localhost:1433/actas_test
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
 
@@ -36,6 +36,11 @@ jobs:
         run: |
           ruff check services/${{ matrix.service }}
           ruff format --check services/${{ matrix.service }}
+
+      - name: SCA - known vulnerabilities in the pinned Python packages (pip-audit)
+        run: |
+          pip install pip-audit==2.10.1
+          pip-audit -r services/${{ matrix.service }}/requirements.txt
 
       - name: Start SQL Server and create the test databases
         run: |
@@ -51,12 +56,30 @@ jobs:
       - name: Build the image
         run: docker build -t ${{ matrix.service }}:ci services/${{ matrix.service }}
 
+      - name: Image scan - HIGH or CRITICAL vulnerabilities that have a fix (Trivy)
+        run: >
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.2
+          image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --scanners vuln ${{ matrix.service }}:ci
+
+  sast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: SAST - Semgrep on the application code
+        run: |
+          pip install semgrep==1.187.0
+          semgrep scan --error --metrics=off --config p/python --config p/security-audit --config p/owasp-top-ten services/kraal/app services/actas/app
+
   validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - name: Install validators
@@ -73,8 +96,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - name: Install
