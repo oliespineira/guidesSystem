@@ -1,0 +1,23 @@
+# Dependabot opens a pull request when a newer version of a pinned dependency exists (SCA, kept up to date).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /services/kraal
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /services/actas
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/kraal
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/actas
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
