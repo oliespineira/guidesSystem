@@ -10,10 +10,10 @@
     "public_url": { "type": "string", "pattern": "^https://" },
     "ui": {
       "type": "object",
-      "required": ["path", "static_web_app", "calls"],
+      "required": ["path", "static_website", "calls"],
       "properties": {
         "path": { "type": "string" },
-        "static_web_app": { "type": "string" },
+        "static_website": { "type": "string" },
         "calls": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
       }
     },
@@ -21,7 +21,7 @@
       "type": "object",
       "required": ["resource_group", "container_apps_environment", "sql_server", "registry"],
       "properties": {
-        "resource_group": { "type": "string", "pattern": "^rg-sdd-3[ab]$" },
+        "resource_group": { "type": "string", "pattern": "^rg-[a-z0-9-]+$" },        "subscription": { "type": "string" },        "region": { "type": "string" },        "pipeline_identity": { "type": "string" },
         "container_apps_environment": { "type": "string" },
         "sql_server": { "type": "string" },
         "registry": { "type": "string" }
