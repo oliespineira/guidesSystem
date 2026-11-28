@@ -21,6 +21,7 @@ flowchart LR
 - **actas** (`services/actas`) owns meetings, decisions, votes, the treasury, hostel bookings and the notices (messaging). It asks kraal about rondas and people over HTTP, only through `services/actas/app/actas/seam.py`.
 - Each service connects to its own database with its own login, which cannot open the other database.
 - If kraal is down, actas keeps serving its own data. Writes that need kraal return **503** with a clear message, and the notice stream degrades to whole-kraal notices. See ADR-6 and ADR-7.
+More diagrams (before and after the split, the Azure deployment, the pipeline, and both databases) are in [docs/diagrams.md](docs/diagrams.md).
 
 ## Repository layout
 
