@@ -43,11 +43,10 @@ The cost is that the seam grew from one function to five, so Domain 2 depends mo
 
 ## 3. Data model: ronda_id as anchor, with a denormalised copy on rama_assignments
 
-**Status:** Superseded by [7]
 Date: 2026-09-20
 
 
-Status: Decided
+Status: Superseded by [7]
 
 
 Context: Everything the group does happens within a specific Guiding year, so both domains needed a common anchor. I also wanted the database itself to enforce that a volunteer is in at most one rama per ronda, because the continuity report gives a wrong answer if someone appears in two ramas in the same year.
@@ -149,7 +148,10 @@ The costs are that the copied code (slug, errors, db helpers) can drift apart if
 
 ADR-2 almost held: seam.py was still the only file in Actas that needed Kraal, but Kraal depended on the shared messaging package, which I only discovered when splitting.
 
+### Update (28 Nov 2026): where the cross-seam flows live, and dependencies
+Section 1b asks to justify where the cross-seam flow lives. Mine live server side: actas calls kraal, and the UI only ever calls each service for that service's own data. The rules that cross the seam must hold whoever calls the API: actas checks that a ronda exists before storing a meeting, a budget or an event, and asks kraal whether someone is the treasurer before approving a payment. If the UI made those checks, anyone calling actas directly could skip them. Doing it in actas also keeps one place for the timeout, the 503 and the degraded notice stream (ADR-9).
 
+Dependencies stay well under the soft cap of about 12 third-party packages per service: kraal uses 4 (fastapi, pydantic, uvicorn, pymssql) and actas 5 (the same plus httpx, for the calls to kraal), all pinned.
 
 ## ADR-7: Data and Migrations
 
@@ -192,6 +194,15 @@ Testing it found three things, all fixed before it reached Azure:
 - when existing rows already break the new rule, the index fails, the whole migration rolls back and the service does not start, which is the recovery plan above working as designed;
 - assign_role let the database's refusal escape as a 500 (review defect 4); it now becomes a 409. The Python check stays for the common case, but the database is the final judge.
 
+### Update (28 Nov 2026): migration 003, its startup line on Azure, and the users' rights
+Migration 003_roles_by_volunteer adds an index on roles (volunteer_id, ronda_id) for the membership lookup actas makes over HTTP: the unique index on (ronda_id, role_name) starts with ronda_id, so it cannot find a volunteer's roles directly. An index changes no rows, so the previous code keeps working.
+
+Its first local run failed: a question mark in a comment of the migration became a query placeholder, because db.py turns every ? into %s and the runner sends migrations through the same execute. The runner rolled it back, as designed. Migration files must therefore contain no question marks, not even in comments; the file and the README say so.
+
+On Azure, now that the environment sends its logs to Log Analytics (ADR-8), the startup line is kept: kraal logged "Applied migration 003_roles_by_volunteer" at 16:47:44 UTC on 28 Nov, and every other start of both services logged "No pending migrations". This closes the gap recorded in ADR-8's update of 27 Nov: 002's line was lost, 003's is stored.
+
+The Decision above says each login has db_owner rights on its own database. That was true on 16 Nov; since 19 Nov each user has only db_ddladmin, db_datareader and db_datawriter, locally and on Azure, and every test passes with them.
+
 ## ADR-8: Serverless hosting on Azure
 
 **Date:** 2026-11-19
@@ -224,7 +235,7 @@ Every setup command is in infra/setup.sh. After the setup, only the pipeline cha
 
 **Deployment strategy.** Each deploy updates the Container App to the new image, which creates a new revision that replaces the old one. The pipeline only passes if both /health endpoints report the new commit; if not, it puts the previous images back (an automatic rollback). Because the old revision can still run for a moment after the new one has migrated the database, every migration must stay backward-compatible with the previous code.
 
-**Public without login.** The live system is public and has no authentication, which ADR-5 said should come before going beyond a trusted network. I accept this because it only holds demo data. Real data would need authentication first (see ADR-10 for what was not built).
+**Public without login.** The live system is public and has no authentication, which ADR-5 said should come before going beyond a trusted network. I accept this because it only holds demo data. Real data would need authentication first, as ADR-5 said.
 
 **Deviations from the assignment text** (following the A2 deployment guide and the announcement of 17 November): my own resource group instead of rg-sdd-3a; a managed identity with OIDC instead of the class service principal; a Storage static website instead of a Static Web App; the SQL free offer (60-minute auto-pause, 32 GB) instead of the shortest auto-pause and 2 GB.
 
@@ -254,7 +265,6 @@ ADR-5 is superseded by this ADR.
 - **Firewall.** "Allow Azure services" lets in any Azure service, not only my two apps. A private endpoint would be stricter, but it is outside the resource allowance; the contained users' passwords and encrypted connections are the second layer. My own IP is only allowed while I run sqlcmd, then the rule is deleted.
 
 
-
 ### Update (28 Nov 2026): infrastructure as code with Terraform
 The Azure resources are now described in Terraform (infra/terraform). They already existed, with data, so Terraform did not create them: import blocks map each resource in the code to the existing one, and I wrote the code until terraform plan showed "No changes". 11 resources are managed this way: the resource group, the storage account and its static website, the SQL server and its firewall rule, the Container Apps environment and both apps, the pipeline's identity and its two OIDC credentials.
 
@@ -265,7 +275,8 @@ Checkov scans the Terraform code in CI. It found 15 issues: I fixed 2 (soft-dele
 CI checks the Terraform code (fmt, validate, Checkov) but never applies it: changes to the infrastructure are planned and applied from my laptop, after reading the plan.
 
 ### Update (28 Nov 2026): Log Analytics workspace added
-The updated section 7 of the assignment and the deployment guide now include a Log Analytics workspace in the allowance, so I added one (oespineira-ieu2024-logs) and connected the Container Apps environment to it. This replaces the earlier decision to read logs only with az containerapp logs show. It fixes the gap recorded in the 27 Nov update: logs now survive when a replica scales to zero, so a migration's startup line can be found afterwards. It is capped at 0.15 GB a day (about 4.5 GB a month, under the free 5 GB) and keeps 30 days, so it cannot use the credit. It is managed in Terraform like the other resources.
+The updated section 7 of the assignment and the deployment guide now include a Log Analytics workspace in the allowance, so I added one (oespineira-ieu2024-logs) and connected the Container Apps environment to it. This replaces the earlier decision to read logs only with az containerapp logs show. It fixes the gap recorded in the 27 Nov update: logs now survive when a replica scales to zero, so a migration's startup line can be found afterwards (ADR-7, update of 28 Nov). It is capped at 0.15 GB a day (about 4.5 GB a month, under the free 5 GB) and keeps 30 days, so it cannot use the credit. It is managed in Terraform like the other resources, which makes 12.
+
 ## ADR-9: Pipelining and Testing
 
 **Date:** 2026-11-17
@@ -276,7 +287,7 @@ The updated section 7 of the assignment and the deployment guide now include a L
 In the first assignment the tests ran on an in-memory SQLite database (ADR-4). Assignment 2 requires CI on every push and pull request: lint, unit tests per service, at least 70% coverage per service, validation of system.yaml and the OpenAPI documents and a build of every image. The tests must run against a SQL Server container, never Azure SQL and at least one integration test must cross the seam between the two services.
 
 ### Decision
-**One workflow** (.github/workflows/ci-cd.yml) this runw on every push and pull request, with three jobs:
+**One workflow** (.github/workflows/ci-cd.yml) runs on every push and pull request, with three jobs:
 - **test**, once per service: ruff lint and format check, the tests on SQL Server with a coverage gate that fails under 70% and a docker build of the image.
 - **validate**: system.yaml against system.schema.json, and both openapi.json files against the OpenAPI specification.
 - **integration**: only after both test jobs pass. It starts the whole system with docker compose and runs the communication seam tests against the real services.
@@ -325,12 +336,6 @@ The notice stream degrades instead of failing: if kraal is down, actas cannot kn
 
 The seam kept the same function names and parameters as in the first assignment, including the conn parameter, which is not used anymore. Because of this, none of the files that call the seam had to change, which is what ADR-2 promised.
 
-- actas tests don't call the real kraal: a FakeKraal in conftest.py replaces _kraal_get with monkeypatch
-- the fake has the same method names as kraal's service (create_ronda, add_volunteer...), so the tests barely changed
-- it returns the same shapes as the real kraal endpoints (I fixed /roles to include volunteer_name to match)
-- autouse=True: every actas test gets the fake automatically, so no test can make a real network call by accident (this happened: a test without the fake tried to reach http://kraal:8000)
-- kraal.down = True simulates kraal being unavailable: test_kraal_down_writes_fail_with_503_but_reads_still_work
-- what the fake doesn't test: the real HTTP call in _kraal_get (timeouts, real 404s) → integration test on Friday
 
 ### Update (27 Nov 2026): security checks in the pipeline
 Following the DevSecOps session, the pipeline now checks security on every change:
@@ -340,7 +345,16 @@ Following the DevSecOps session, the pipeline now checks security on every chang
 - **Supply chain:** every GitHub action is pinned to a commit SHA, because a tag can be moved (the tj-actions incident).
 - **Secrets:** GitHub secret scanning and push protection are on.
 
-Not covered: authentication tests (there is no login, see ADR-10), an active ZAP scan, and signed images or an SBOM.
+Not covered: authentication tests (there is no login, see ADR-5 and ADR-8), an active ZAP scan, and signed images or an SBOM.
+
+### Update (28 Nov 2026): two workflows, the official schema, and the infrastructure checks
+The single workflow described above became two on 19 Nov, as the deployment guide asks: ci.yml (every pull request and every push except to main) and cd.yml (pushes to main, which first calls ci.yml, so nothing is deployed unless CI passed on the same commit). Branch protection now requires six checks: test for each service, sast, validate, iac and integration.
+
+The professor published the official system.schema.json, and it replaced my stand-in, unchanged; the validate job now checks system.yaml against it. Against the official schema my file had 10 errors. Seven came from unquoted commas inside YAML flow mappings, which split a description into extra keys; my stand-in allowed extra keys, so it never caught them, and the official one does (additionalProperties: false). This is the reason to validate against a schema written by someone else.
+
+The new iac job runs terraform fmt, terraform validate and a Checkov scan of infra/terraform, and never applies anything (ADR-8, update of 28 Nov). Its first run failed on a Checkov rule my local scan had missed, and I fixed it before merging: a gate catching what a person forgot.
+
+Final numbers: kraal 30 tests, 93% coverage; actas 125 tests, 94%; 2 integration tests.
 
 ## ADR-10: Self-managed infrastructure (not built)
 
