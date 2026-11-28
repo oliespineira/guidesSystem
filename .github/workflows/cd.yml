@@ -26,7 +26,7 @@ jobs:
       matrix:
         service: [kraal, actas]
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
@@ -57,7 +57,7 @@ jobs:
       UI_STORAGE: ${{ vars.UI_STORAGE }}
       REGISTRY: ghcr.io/${{ github.repository_owner }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Sign in to Azure with OIDC (no stored password)
         uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
