@@ -1,16 +1,19 @@
 # yaml-language-server: $schema=./system.schema.json
 student: oespineira.ieu2024
 prefix: oespineira-ieu2024
-public_url: https://TO-BE-SET-AFTER-FIRST-DEPLOY.azurestaticapps.net
+public_url: https://oespineiraieu2024ui.z1.web.core.windows.net
 ui:
   path: ui
-  static_web_app: oespineira-ieu2024-ui
+  static_website: oespineiraieu2024ui
   calls: [kraal, actas]
 azure:
-  resource_group: rg-sdd-3a
+  subscription: Azure for Students
+  region: swedencentral
+  resource_group: rg-oespineira-ieu2024
   container_apps_environment: oespineira-ieu2024-env
   sql_server: oespineira-ieu2024-sql
   registry: ghcr.io/oliespineira
+  pipeline_identity: oespineira-ieu2024-github
 services:
   kraal:
     description: Who is in the kraal each ronda - volunteers, ramas and roles.
