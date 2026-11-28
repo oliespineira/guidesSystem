@@ -37,6 +37,9 @@ resource "azurerm_storage_account" "ui" {
   min_tls_version                 = "TLS1_2"
   https_traffic_only_enabled      = true
   allow_nested_items_to_be_public = false
+  # CD uploads the UI with the account key (see the CKV2_AZURE_40 skip), so shared keys stay on,
+  # and the SAS expiration policy below limits any shared-access link to one day.
+  shared_access_key_enabled = true
 
   # Checkov CKV2_AZURE_38: deleted UI files can be recovered for 7 days
   blob_properties {
