@@ -4,53 +4,50 @@ prefix: oespineira-ieu2024
 public_url: https://oespineiraieu2024ui.z1.web.core.windows.net
 ui:
   path: ui
-  static_website: oespineiraieu2024ui
+  storage_account: oespineiraieu2024ui
   calls: [kraal, actas]
 azure:
-  subscription: Azure for Students
-  region: swedencentral
   resource_group: rg-oespineira-ieu2024
   container_apps_environment: oespineira-ieu2024-env
   sql_server: oespineira-ieu2024-sql
   registry: ghcr.io/oliespineira
-  pipeline_identity: oespineira-ieu2024-github
 services:
   kraal:
-    description: Who is in the kraal each ronda - volunteers, ramas and roles.
+    description: "Who is in the kraal each ronda: volunteers, ramas and roles."
     path: services/kraal
     openapi: services/kraal/openapi.json
     port_default: 8000
     health: /health
     migrations: services/kraal/migrations
     env:
-      PORT: { default: 8000, description: Port the service listens on }
+      PORT: { default: 8000, description: "Port the service listens on" }
       DATABASE_URL: { secret: true, description: "Connection string mssql://user:password@host:1433/database; on Azure add ?encrypt=require" }
-      UI_ORIGIN: { default: "http://localhost:8080", description: The only origin allowed by CORS }
-      GIT_SHA: { default: local, description: Commit the image was built from, shown by /health }
+      UI_ORIGIN: { default: "http://localhost:8080", description: "The only origin allowed by CORS" }
+      GIT_SHA: { default: local, description: "Commit the image was built from, shown by /health" }
     calls: []
     azure:
       container_app: oespineira-ieu2024-kraal
       sql_database: oespineira-ieu2024-kraal-db
   actas:
-    description: Meetings, decisions, votes, treasury, hostel bookings and live notices.
+    description: "Meetings, decisions, votes, treasury, hostel bookings and live notices."
     path: services/actas
     openapi: services/actas/openapi.json
     port_default: 8000
     health: /health
     migrations: services/actas/migrations
     env:
-      PORT: { default: 8000, description: Port the service listens on }
+      PORT: { default: 8000, description: "Port the service listens on" }
       DATABASE_URL: { secret: true, description: "Connection string mssql://user:password@host:1433/database; on Azure add ?encrypt=require" }
-      UI_ORIGIN: { default: "http://localhost:8080", description: The only origin allowed by CORS }
-      GIT_SHA: { default: local, description: Commit the image was built from, shown by /health }
-      KRAAL_URL: { default: "http://kraal:8000", description: Base URL of the kraal service }
-      KRAAL_TIMEOUT_S: { default: 2, description: Timeout in seconds for every call to kraal }
-      APPROVAL_POLICY: { default: reject_over_budget, description: Rule for money requests (reject_over_budget, auto_approve_small, always_to_meeting) }
-      AUTO_APPROVE_LIMIT_CENTS: { default: 5000, description: Limit for auto_approve_small, in cents }
-      TREASURER_ROLE: { default: Tesorera, description: Role allowed to approve, reject and pay }
-      BOOKING_LEAD_DAYS: { default: 90, description: Default booking deadline, in days before the outing }
-      BOOKING_REMIND_DAYS: { default: 14, description: Start reminding this many days before the deadline }
-      BOOKING_CHECK_SECONDS: { default: 3600, description: How often the reminder loop checks, in seconds }
+      UI_ORIGIN: { default: "http://localhost:8080", description: "The only origin allowed by CORS" }
+      GIT_SHA: { default: local, description: "Commit the image was built from, shown by /health" }
+      KRAAL_URL: { default: "http://kraal:8000", description: "Base URL of the kraal service" }
+      KRAAL_TIMEOUT_S: { default: 2, description: "Timeout in seconds for every call to kraal" }
+      APPROVAL_POLICY: { default: reject_over_budget, description: "Rule for money requests: reject_over_budget, auto_approve_small or always_to_meeting" }
+      AUTO_APPROVE_LIMIT_CENTS: { default: 5000, description: "Limit for auto_approve_small, in cents" }
+      TREASURER_ROLE: { default: Tesorera, description: "Role allowed to approve, reject and pay" }
+      BOOKING_LEAD_DAYS: { default: 90, description: "Default booking deadline, in days before the outing" }
+      BOOKING_REMIND_DAYS: { default: 14, description: "Start reminding this many days before the deadline" }
+      BOOKING_CHECK_SECONDS: { default: 3600, description: "How often the reminder loop checks, in seconds" }
     calls:
       - service: kraal
         url_env: KRAAL_URL
