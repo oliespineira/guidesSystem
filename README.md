@@ -206,9 +206,6 @@ Secrets are never committed: not in code, workflows, compose or history.
 **If a secret is ever pushed,** within 24 hours: change it (for a database user: `ALTER USER ... WITH PASSWORD` as the server admin, then update the GitHub secret and redeploy), remove it from the code, and record it below.
 
 **Incidents:** none.
-**If a secret is ever pushed,** within 24 hours: revoke or rotate it (or, for the class service principal, notify the professor), remove it from the code, and record it below.
-
-**Incidents:** none.
 
 ## Documentation
 
