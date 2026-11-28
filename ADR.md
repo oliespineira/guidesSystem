@@ -252,6 +252,17 @@ ADR-5 is superseded by this ADR.
 - **Base image.** Alpine was mentioned in class. I kept a minimal Debian image (python:3.12-slim-trixie), because pymssql's prebuilt wheels need glibc, which Alpine (musl) does not have. The image is pinned by digest, Debian's security updates are installed at build time (a trade-off: the base is exact, the patches are current), and the app runs as a system user with no home and no login.
 - **Logs.** Without Log Analytics, logs only live as long as the replica that wrote them. The replica that applied migration 002 had scaled to zero before I read its logs, so the evidence for it is the schema_migrations row and the later "No pending migrations" line.
 - **Firewall.** "Allow Azure services" lets in any Azure service, not only my two apps. A private endpoint would be stricter, but it is outside the resource allowance; the contained users' passwords and encrypted connections are the second layer. My own IP is only allowed while I run sqlcmd, then the rule is deleted.
+
+
+
+### Update (28 Nov 2026): infrastructure as code with Terraform
+The Azure resources are now described in Terraform (infra/terraform). They already existed, with data, so Terraform did not create them: import blocks map each resource in the code to the existing one, and I wrote the code until terraform plan showed "No changes". 11 resources are managed this way: the resource group, the storage account and its static website, the SQL server and its firewall rule, the Container Apps environment and both apps, the pipeline's identity and its two OIDC credentials.
+
+Deliberately left out: the two databases (the azurerm provider has no setting for the SQL free offer, and I did not want Terraform to "correct" a database that holds data); the containers' images, environment variables and secrets (CD changes them on every deploy, so Terraform ignores them); and the role assignments (created once by infra/setup.sh). Every resource with data or a public address has prevent_destroy. The SQL admin password is write-only, so it is never stored in Terraform's state. The state stays on my laptop and is git-ignored, because it holds the Container Apps' secret values; a shared remote state would need another storage account, outside the allowance.
+
+Checkov scans the Terraform code in CI. It found 15 issues: I fixed 2 (soft-delete and a SAS expiration policy on the storage account) and skipped 13 with the reason written next to each resource. Almost all need resources or paid features the allowance rules out (private endpoints, a VNet, a Key Vault, Log Analytics, Defender for SQL), or contradict what the resource is for (the UI is a public website on purpose).
+
+CI checks the Terraform code (fmt, validate, Checkov) but never applies it: changes to the infrastructure are planned and applied from my laptop, after reading the plan.
 ## ADR-9: Pipelining and Testing
 
 **Date:** 2026-11-17

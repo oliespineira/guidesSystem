@@ -164,7 +164,20 @@ Every command is in **`infra/setup.sh`**, in the order of the guide's steps 2–
 4. Run `infra/setup.sh` step by step, checking each result before the next.
 
 After the setup, only the pipeline changes anything.
+### Infrastructure as code (Terraform)
 
+`infra/terraform` describes the Azure resources (except the databases, the role assignments, and what CD changes on each deploy). They were created by `infra/setup.sh` and taken over with `import` blocks, so Terraform never recreated them.
+
+```bash
+cd infra/terraform
+export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
+read -s TF_VAR_sql_admin_password; export TF_VAR_sql_admin_password
+terraform init
+terraform plan        # must say "No changes"
+```
+
+CI runs `terraform fmt -check`, `terraform validate` and a Checkov scan on every change, but never applies. The state file stays local and git-ignored (it holds secret values).
 ### Logs
 
 ```bash
