@@ -72,7 +72,7 @@ The cost of never altering tables is that a fix to an existing table does not re
 
 ## 4. Testing Approach
 Date: 2026-09-25
-Status: Decided
+Status: Superseded by [9]
 Context: The assignment specifies that at least 70% of the business logic should be covered, measured with a standard tool and that routing or framework glue does not count toward that bar.
 
 
@@ -96,7 +96,7 @@ What I deliberately left thinner: the live notice stream and the booking reminde
 Date: 2026-10-04
 
 
-Status: Decided
+Status: Superseded by [8]
 
 
 Context: This app would have about 20 users who all know each other and it runs as a single process on one machine. In our kraal there is full transparency over who does what: roles are shared and no individual person has more power than the rest; a role just means someone generally takes care of that task. Some features now depend on who is acting, for example the named votes and the rule that only the treasurer is allowed to approve or pay requests.
