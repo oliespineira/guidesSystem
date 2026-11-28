@@ -57,6 +57,8 @@ flowchart TB
       ING --> KA
       ING --> AA
     end
+    LAW["Log Analytics workspace oespineira-ieu2024-logs<br/>containers' logs, 0.15 GB/day cap"]
+    ENV -->|"console and system logs"| LAW
     subgraph SQL["SQL server oespineira-ieu2024-sql<br/>firewall: Azure services only"]
       KDB[("kraal-db<br/>serverless, free offer")]
       ADB[("actas-db<br/>serverless, free offer")]

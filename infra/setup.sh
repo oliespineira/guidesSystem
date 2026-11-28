@@ -51,10 +51,15 @@ $SQLCMD -S "$PREFIX-sql.database.windows.net" -d "$PREFIX-actas-db" -U sqladmin 
   -i /infra/create-user.sql -v APP_USER=actas_app APP_PASSWORD="$ACTAS_DB_PASSWORD"
 az sql server firewall-rule delete --resource-group "$RG" --server "$PREFIX-sql" --name MyLaptop
 
-# Step 5: Container Apps environment and one Container App per service.
+# Step 5: Container Apps environment, with a Log Analytics workspace for the containers' logs
+# (part of the allowance; capped at 0.15 GB a day, under the free 5 GB a month), then one Container App per service.
 # Placeholder image until the first deploy; scale 0..1; the connection string is a secret, passed by secretref.
-# No Log Analytics workspace: logs are read with `az containerapp logs show`.
-az containerapp env create --name "$PREFIX-env" --resource-group "$RG" --location "$LOCATION" --logs-destination none
+az monitor log-analytics workspace create -g "$RG" -n "$PREFIX-logs" -l "$LOCATION" --sku PerGB2018 \
+  --retention-time 30 --quota 0.15
+WS_ID=$(az monitor log-analytics workspace show -g "$RG" -n "$PREFIX-logs" --query customerId -o tsv)
+WS_KEY=$(az monitor log-analytics workspace get-shared-keys -g "$RG" -n "$PREFIX-logs" --query primarySharedKey -o tsv)
+az containerapp env create --name "$PREFIX-env" --resource-group "$RG" --location "$LOCATION" \
+  --logs-destination log-analytics --logs-workspace-id "$WS_ID" --logs-workspace-key "$WS_KEY"
 az containerapp create --name "$PREFIX-kraal" --resource-group "$RG" --environment "$PREFIX-env" \
   --image mcr.microsoft.com/k8se/quickstart:latest --ingress external --target-port 8000 \
   --min-replicas 0 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
@@ -66,7 +71,6 @@ az containerapp create --name "$PREFIX-actas" --resource-group "$RG" --environme
   --min-replicas 0 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
   --secrets "database-url=mssql://actas_app:${ACTAS_DB_PASSWORD}@${PREFIX}-sql.database.windows.net:1433/${PREFIX}-actas-db?encrypt=require" \
   --env-vars DATABASE_URL=secretref:database-url UI_ORIGIN="$UI_ORIGIN" KRAAL_URL="https://$KRAAL_FQDN"
-
 # Step 6: the pipeline's identity: a user-assigned managed identity with Contributor on this resource group only,
 # trusted through OIDC for pushes to main (both subject formats GitHub may send). Run in bash, not zsh.
 az identity create --name "$PREFIX-github" --resource-group "$RG" --location "$LOCATION"

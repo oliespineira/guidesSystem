@@ -62,3 +62,8 @@ import {
   to = azurerm_storage_account_static_website.ui
   id = "${local.rg_id}/providers/Microsoft.Storage/storageAccounts/oespineiraieu2024ui"
 }
+
+import {
+  to = azurerm_log_analytics_workspace.logs
+  id = "${local.rg_id}/providers/Microsoft.OperationalInsights/workspaces/oespineira-ieu2024-logs"
+}
