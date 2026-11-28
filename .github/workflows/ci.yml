@@ -90,7 +90,24 @@ jobs:
         run: |
           openapi-spec-validator services/kraal/openapi.json
           openapi-spec-validator services/actas/openapi.json
-
+  iac:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.17.2
+      - name: Terraform format and validate (no Azure access needed)
+        working-directory: infra/terraform
+        run: |
+          terraform fmt -check
+          terraform init -backend=false
+          terraform validate
+      - name: IaC scan (Checkov); every skip in main.tf carries its reason
+        run: >
+          docker run --rm -v "$PWD/infra/terraform:/tf" bridgecrew/checkov:3.4.11
+          -d /tf --framework terraform --compact --quiet
   integration:
     needs: [test]
     runs-on: ubuntu-24.04

@@ -8,3 +8,8 @@ data/
 coverage.txt
 evidence/
 .idea/
+# Terraform: the state holds secret values read from Azure; never commit it
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/tfplan
