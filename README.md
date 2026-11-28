@@ -152,6 +152,9 @@ Following the A2 deployment guide, the system runs in my own Azure for Students 
 | SQL server | `oespineira-ieu2024-sql` |
 | Serverless databases (free offer) | `oespineira-ieu2024-kraal-db`, `oespineira-ieu2024-actas-db` |
 | Pipeline identity (OIDC) | `oespineira-ieu2024-github`, Contributor on the resource group only |
+| Container Apps environment | `oespineira-ieu2024-env` |
+| Log Analytics workspace (the containers' logs, capped at 0.15 GB a day) | `oespineira-ieu2024-logs` |
+| Container Apps (0 to 1 replicas) | `oespineira-ieu2024-kraal`, `oespineira-ieu2024-actas` |
 
 ### Reproducing the initial setup
 
@@ -181,12 +184,20 @@ terraform plan        # must say "No changes"
 CI runs `terraform fmt -check`, `terraform validate` and a Checkov scan on every change, but never applies. The state file stays local and git-ignored (it holds secret values).
 ### Logs
 
+The Container Apps environment sends the containers' logs to the Log Analytics workspace `oespineira-ieu2024-logs` (30 days, capped at 0.15 GB a day). In the portal: the workspace → **Logs**, then for example:
+
+```
+ContainerAppConsoleLogs_CL
+| where Log_s contains "migration"
+| project TimeGenerated, ContainerAppName_s, Log_s
+| order by TimeGenerated desc
+```
+
+Live, from the terminal:
+
 ```bash
 az containerapp logs show --name oespineira-ieu2024-actas --resource-group rg-oespineira-ieu2024 --follow
 ```
-
-(add `--type system` for start-up and probe events).
-
 ### Rollback
 
 CD rolls back automatically when the new version doesn't become healthy. To go back to an earlier version by hand, deploy its image by commit SHA:

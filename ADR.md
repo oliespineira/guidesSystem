@@ -263,6 +263,9 @@ Deliberately left out: the two databases (the azurerm provider has no setting fo
 Checkov scans the Terraform code in CI. It found 15 issues: I fixed 2 (soft-delete and a SAS expiration policy on the storage account) and skipped 13 with the reason written next to each resource. Almost all need resources or paid features the allowance rules out (private endpoints, a VNet, a Key Vault, Log Analytics, Defender for SQL), or contradict what the resource is for (the UI is a public website on purpose).
 
 CI checks the Terraform code (fmt, validate, Checkov) but never applies it: changes to the infrastructure are planned and applied from my laptop, after reading the plan.
+
+### Update (28 Nov 2026): Log Analytics workspace added
+The updated section 7 of the assignment and the deployment guide now include a Log Analytics workspace in the allowance, so I added one (oespineira-ieu2024-logs) and connected the Container Apps environment to it. This replaces the earlier decision to read logs only with az containerapp logs show. It fixes the gap recorded in the 27 Nov update: logs now survive when a replica scales to zero, so a migration's startup line can be found afterwards. It is capped at 0.15 GB a day (about 4.5 GB a month, under the free 5 GB) and keeps 30 days, so it cannot use the credit. It is managed in Terraform like the other resources.
 ## ADR-9: Pipelining and Testing
 
 **Date:** 2026-11-17

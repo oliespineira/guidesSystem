@@ -101,11 +101,29 @@ resource "azurerm_mssql_firewall_rule" "azure_services" {
   end_ip_address   = "0.0.0.0"
 }
 
-# Container Apps: the environment, then one app per service
-resource "azurerm_container_app_environment" "main" {
-  name                = "${local.prefix}-env"
+
+# The containers' logs (part of the allowance since the 28 Nov update of section 7).
+# Daily cap of 0.15 GB, about 4.5 GB a month: under the free 5 GB, so it cannot use the credit.
+resource "azurerm_log_analytics_workspace" "logs" {
+  name                = "${local.prefix}-logs"
   resource_group_name = azurerm_resource_group.main.name
   location            = local.location
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+  daily_quota_gb      = 0.15
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Container Apps: the environment, then one app per service
+resource "azurerm_container_app_environment" "main" {
+  name                       = "${local.prefix}-env"
+  resource_group_name        = azurerm_resource_group.main.name
+  location                   = local.location
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.logs.id
+
 
   # Pay per use: no dedicated workload profiles
   workload_profile {
