@@ -338,3 +338,33 @@ Following the DevSecOps session, the pipeline now checks security on every chang
 - **Secrets:** GitHub secret scanning and push protection are on.
 
 Not covered: authentication tests (there is no login, see ADR-10), an active ZAP scan, and signed images or an SBOM.
+
+## ADR-10: Self-managed infrastructure (not built)
+
+**Date:** 2026-11-28
+**Status:** Accepted
+
+### Context
+In class we discussed running the system on our own infrastructure instead of relying on managed cloud services: virtual machines, our own load balancer and router, our own DNS and TLS certificates, Ansible to configure the machines, and deployment strategies such as blue/green. Section 1c of the assignment rules out VMs, App Service plans, dedicated profiles, Kubernetes and a third container, and asks that anything the design would benefit from be documented here instead.
+
+### Decision
+I did not build self-managed infrastructure. Every job those pieces would do is done by a managed service, and I can point to which one:
+- **Load balancer and router:** the Container Apps ingress receives every HTTPS request and sends it to a healthy replica (ADR-8).
+- **DNS:** Azure gives each app a name in the environment's domain, and the storage website its own address. config.js holds them.
+- **TLS certificates:** handled by the ingress and the storage website; I manage none.
+- **Machine configuration (Ansible):** there are no machines. Each container is built from its Dockerfile, and Terraform describes the Azure resources (ADR-8 update of 28 Nov).
+- **Deployment strategy:** each deploy creates a new revision; CD only passes if /health reports the new commit, and puts the previous images back if not (ADR-8).
+
+If I built it myself, it would need at least: two VMs for each service (so one can fail), a load balancer in front of them (nginx or HAProxy) with health checks, DNS records and certificates that I renew, Ansible playbooks to install Docker and keep the machines patched, and two identical environments to switch between for blue/green.
+
+### Alternatives considered
+- **VMs with nginx as load balancer, configured with Ansible:** full control over every layer, and nothing depends on one provider's services. But the VMs cost money every hour even with no traffic, which the assignment forbids (only pay-per-use), and I would have to patch the operating systems, renew certificates and handle failures myself.
+- **Kubernetes:** solves load balancing, rolling updates and self-healing, but needs a cluster that runs all the time, and is out of scope (1c).
+- **Blue/green with two active Container App revisions:** possible without VMs, but it needs two replicas at once against the same database, against the one-replica rule (ADR-8).
+
+### Consequences
+I depend on Azure's managed services: changing provider would mean re-creating the ingress, DNS and identity setup elsewhere (Terraform makes the rest easier to move). I do not control the load balancer's settings or the TLS versions beyond what Azure offers.
+
+In exchange, an idle system costs almost nothing, there is no operating system to patch, and I spent the time on the application, the pipeline and the security checks instead of on servers.
+
+**When self-managed would be worth it:** steady, high traffic, where always-on machines become cheaper than per-use billing; data that must stay on the association's own hardware or in a specific country; or a need for control over the network that a managed service does not give. None applies to a volunteer association with a few dozen users.
